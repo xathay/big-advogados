@@ -26,6 +26,17 @@ formato PFX/P12, instala os certificados nos navegadores (Firefox, Chrome,
 Chromium, Brave, Edge, Opera) via NSS, e oferece acesso rápido aos principais
 sistemas judiciais eletrônicos do Brasil.
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/tokens.png" alt="Detecção de Tokens USB" width="380">
+  <img src="docs/screenshots/certificado-a1.png" alt="Certificado A1" width="380">
+</p>
+<p align="center">
+  <img src="docs/screenshots/certificados.png" alt="Certificados" width="380">
+  <img src="docs/screenshots/sistemas.png" alt="Sistemas Judiciais" width="380">
+</p>
+
 ## Funcionalidades
 
 ### Certificados A3 (Token USB)
