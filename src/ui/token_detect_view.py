@@ -1,0 +1,127 @@
+"""Token detection view — shows status of connected tokens."""
+
+from __future__ import annotations
+
+from typing import Optional
+
+import gi
+gi.require_version("Gtk", "4.0")
+gi.require_version("Adw", "1")
+from gi.repository import Gtk, Adw, GLib, Pango  # noqa: E402
+
+from src.certificate.token_database import TokenDatabase, TokenInfo
+
+
+class TokenDetectView(Gtk.ScrolledWindow):
+    """View showing detected tokens and their status."""
+
+    def __init__(self, token_db: TokenDatabase) -> None:
+        super().__init__()
+        self.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self._token_db = token_db
+        self._token_rows: dict[str, Adw.ActionRow] = {}
+
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        content.set_margin_top(12)
+        content.set_margin_bottom(12)
+        content.set_margin_start(12)
+        content.set_margin_end(12)
+
+        # Header
+        header = Gtk.Label(label="Tokens Detectados")
+        header.add_css_class("title-2")
+        header.set_halign(Gtk.Align.START)
+        content.append(header)
+
+        # Status page (no token connected)
+        self._status_page = Adw.StatusPage()
+        self._status_page.set_icon_name("dialog-information-symbolic")
+        self._status_page.set_title("Nenhum token detectado")
+        self._status_page.set_description(
+            "Conecte seu token USB de certificado digital.\n"
+            "O dispositivo será reconhecido automaticamente."
+        )
+        content.append(self._status_page)
+
+        # Token list group (hidden initially)
+        self._token_group = Adw.PreferencesGroup()
+        self._token_group.set_title("Dispositivos Conectados")
+        self._token_group.set_visible(False)
+        content.append(self._token_group)
+
+        # Scan button
+        scan_btn = Gtk.Button(label="Buscar Dispositivos")
+        scan_btn.add_css_class("suggested-action")
+        scan_btn.set_halign(Gtk.Align.CENTER)
+        scan_btn.set_margin_top(8)
+        scan_btn.connect("clicked", self._on_scan_clicked)
+        content.append(scan_btn)
+
+        self.set_child(content)
+
+    def _on_scan_clicked(self, _button: Gtk.Button) -> None:
+        self.emit_scan_request()
+
+    def emit_scan_request(self) -> None:
+        """Can be overridden or connected to from window."""
+        pass
+
+    def add_token(self, vid: int, pid: int, devnode: str) -> None:
+        """Add a detected token to the list."""
+        key = f"{vid:04x}:{pid:04x}"
+        if key in self._token_rows:
+            return
+
+        tokens = self._token_db.lookup_by_usb(vid, pid)
+        if tokens:
+            token = tokens[0]
+            title = f"{token.vendor} — {token.model}"
+            subtitle = f"USB {key} • {token.description}"
+            icon = "media-removable-symbolic" if not token.is_reader else "drive-removable-media-symbolic"
+        else:
+            title = f"Dispositivo USB {key}"
+            subtitle = f"Dispositivo em {devnode}"
+            icon = "drive-removable-media-symbolic"
+
+        row = Adw.ActionRow()
+        row.set_title(title)
+        row.set_subtitle(subtitle)
+        row.set_icon_name(icon)
+        row.set_activatable(True)
+
+        # Module status indicator
+        module_path = self._token_db.find_pkcs11_library(vid, pid)
+        if module_path:
+            status_label = Gtk.Label(label="Módulo OK")
+            status_label.add_css_class("success")
+            row.add_suffix(status_label)
+
+            arrow = Gtk.Image.new_from_icon_name("go-next-symbolic")
+            row.add_suffix(arrow)
+        else:
+            status_label = Gtk.Label(label="Módulo não encontrado")
+            status_label.add_css_class("error")
+            row.add_suffix(status_label)
+
+        self._token_rows[key] = row
+        self._token_group.add(row)
+        self._token_group.set_visible(True)
+        self._status_page.set_visible(False)
+
+    def remove_token(self, vid: int, pid: int) -> None:
+        """Remove a token from the list."""
+        key = f"{vid:04x}:{pid:04x}"
+        row = self._token_rows.pop(key, None)
+        if row:
+            self._token_group.remove(row)
+
+        if not self._token_rows:
+            self._token_group.set_visible(False)
+            self._status_page.set_visible(True)
+
+    def clear(self) -> None:
+        for key in list(self._token_rows):
+            row = self._token_rows.pop(key)
+            self._token_group.remove(row)
+        self._token_group.set_visible(False)
+        self._status_page.set_visible(True)

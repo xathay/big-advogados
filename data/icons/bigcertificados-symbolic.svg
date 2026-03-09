@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
+  <!-- Shield outline -->
+  <path d="M8 1.5 C8 1.5 4 2.5 2.5 3.5 C2.5 3.5 2 6.5 2.5 8.5 C3 10.5 5.5 12.5 8 13.5 C10.5 12.5 13 10.5 13.5 8.5 C14 6.5 13.5 3.5 13.5 3.5 C12 2.5 8 1.5 8 1.5Z"
+        fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+  <!-- Lock shackle -->
+  <path d="M6.5 7 L6.5 5.8 C6.5 4.8 7.2 4.2 8 4.2 C8.8 4.2 9.5 4.8 9.5 5.8 L9.5 7"
+        fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
+  <!-- Lock body -->
+  <rect x="6" y="7" width="4" height="3.2" rx="0.8" fill="currentColor" opacity="0.85"/>
+  <!-- Keyhole -->
+  <circle cx="8" cy="8.2" r="0.6" fill="#fff"/>
+  <path d="M8 8.6 L7.6 9.6 L8.4 9.6 Z" fill="#fff"/>
+</svg>

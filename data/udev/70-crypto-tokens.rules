@@ -1,0 +1,99 @@
+# BigCertificados — udev rules for Brazilian digital certificate tokens
+# Install to /etc/udev/rules.d/70-crypto-tokens.rules
+# Then run: sudo udevadm control --reload-rules && sudo udevadm trigger
+
+# ── SafeNet / Thales ──
+# eToken 5110, 5110+ FIPS
+SUBSYSTEM=="usb", ATTR{idVendor}=="0529", ATTR{idProduct}=="0620", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+# eToken 5300, 5300-C
+SUBSYSTEM=="usb", ATTR{idVendor}=="0529", ATTR{idProduct}=="0621", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+# eToken 7300
+SUBSYSTEM=="usb", ATTR{idVendor}=="0529", ATTR{idProduct}=="0622", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+# eToken PRO 72K
+SUBSYSTEM=="usb", ATTR{idVendor}=="0529", ATTR{idProduct}=="0600", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+# eToken PRO Java
+SUBSYSTEM=="usb", ATTR{idVendor}=="0529", ATTR{idProduct}=="0514", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+
+# ── Gemalto / Thales ──
+# IDBridge CT40
+SUBSYSTEM=="usb", ATTR{idVendor}=="08e6", ATTR{idProduct}=="3437", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+# IDBridge CT710, IDPrime MD 830/840
+SUBSYSTEM=="usb", ATTR{idVendor}=="08e6", ATTR{idProduct}=="3438", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+# IDBridge K30, IDOne Cosmo V7
+SUBSYSTEM=="usb", ATTR{idVendor}=="08e6", ATTR{idProduct}=="34ec", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+# IDBridge K50
+SUBSYSTEM=="usb", ATTR{idVendor}=="08e6", ATTR{idProduct}=="3479", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+
+# ── Watchdata ──
+# ProxKey
+SUBSYSTEM=="usb", ATTR{idVendor}=="058f", ATTR{idProduct}=="9540", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+# GD e-Pass
+SUBSYSTEM=="usb", ATTR{idVendor}=="058f", ATTR{idProduct}=="9520", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+
+# ── Feitian ──
+# ePass 2003
+SUBSYSTEM=="usb", ATTR{idVendor}=="096e", ATTR{idProduct}=="0807", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+# ePass 3003 Auto
+SUBSYSTEM=="usb", ATTR{idVendor}=="096e", ATTR{idProduct}=="0808", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+# BioPass FIDO2
+SUBSYSTEM=="usb", ATTR{idVendor}=="096e", ATTR{idProduct}=="060b", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+# Rockey 200
+SUBSYSTEM=="usb", ATTR{idVendor}=="096e", ATTR{idProduct}=="0305", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+# ePass FIDO-NFC
+SUBSYSTEM=="usb", ATTR{idVendor}=="096e", ATTR{idProduct}=="0854", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+
+# ── Taglio ──
+# DinKey
+SUBSYSTEM=="usb", ATTR{idVendor}=="04b9", ATTR{idProduct}=="0300", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+
+# ── GD Burti ──
+# StarSign CUT S
+SUBSYSTEM=="usb", ATTR{idVendor}=="04e6", ATTR{idProduct}=="5816", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+
+# ── Bit4id ──
+# miniLector EVO, Digital-DNA Key
+SUBSYSTEM=="usb", ATTR{idVendor}=="25dd", ATTR{idProduct}=="3111", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+
+# ── Athena ──
+# ASEDrive IIIe
+SUBSYSTEM=="usb", ATTR{idVendor}=="0dc3", ATTR{idProduct}=="0802", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+# ASECard Crypto
+SUBSYSTEM=="usb", ATTR{idVendor}=="0dc3", ATTR{idProduct}=="1004", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+
+# ── ACS (Advanced Card Systems) ──
+# ACR38U
+SUBSYSTEM=="usb", ATTR{idVendor}=="072f", ATTR{idProduct}=="90cc", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+# ACR39U
+SUBSYSTEM=="usb", ATTR{idVendor}=="072f", ATTR{idProduct}=="2200", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+
+# ── Cherry ──
+# ST-2000
+SUBSYSTEM=="usb", ATTR{idVendor}=="046a", ATTR{idProduct}=="003e", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+# SmartTerminal
+SUBSYSTEM=="usb", ATTR{idVendor}=="046a", ATTR{idProduct}=="0070", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+
+# ── SCM Microsystems ──
+# SCR 3310
+SUBSYSTEM=="usb", ATTR{idVendor}=="04e6", ATTR{idProduct}=="5116", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+# SCR 3500
+SUBSYSTEM=="usb", ATTR{idVendor}=="04e6", ATTR{idProduct}=="5410", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+
+# ── HID Global / OMNIKEY ──
+# OMNIKEY 3021
+SUBSYSTEM=="usb", ATTR{idVendor}=="076b", ATTR{idProduct}=="3021", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+# OMNIKEY 5021 CL
+SUBSYSTEM=="usb", ATTR{idVendor}=="076b", ATTR{idProduct}=="5321", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+
+# ── Broadcom ──
+# 5880 (integrado em notebooks)
+SUBSYSTEM=="usb", ATTR{idVendor}=="0a5c", ATTR{idProduct}=="5800", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+
+# ── C3PO ──
+# LTC31
+SUBSYSTEM=="usb", ATTR{idVendor}=="0783", ATTR{idProduct}=="0003", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+
+# ── Yubico ──
+# YubiKey 5 NFC / 5C
+SUBSYSTEM=="usb", ATTR{idVendor}=="1050", ATTR{idProduct}=="0407", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+# YubiKey 5Ci
+SUBSYSTEM=="usb", ATTR{idVendor}=="1050", ATTR{idProduct}=="0406", MODE="0660", GROUP="plugdev", TAG+="uaccess"
