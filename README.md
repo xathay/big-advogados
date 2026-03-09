@@ -293,7 +293,7 @@ python -m src.main
 
 ## Changelog
 
-### v0.1.0 — Lançamento Inicial (2025)
+### v0.1.0 — Lançamento Inicial (09/03/2026)
 
 #### Gerenciamento de Certificados
 - Importação e gerenciamento de certificados A1 (PFX/P12)
