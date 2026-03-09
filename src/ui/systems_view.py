@@ -203,6 +203,36 @@ class SystemsView(Gtk.ScrolledWindow):
         pjeoffice_group.add(self._launch_row)
 
         content.append(pjeoffice_group)
+
+        # Brave browser configuration section
+        from src.browser.brave_config import is_brave_installed
+        if is_brave_installed():
+            brave_group = Adw.PreferencesGroup()
+            brave_group.set_title("Brave — Configuração para PJe")
+            brave_group.set_description(
+                "O Brave Shields bloqueia a conexão com o PJe Office.\n"
+                "Esta configuração desativa os Shields nos sites judiciais.\n"
+                "Solução desenvolvida pelo time BigLinux / BigCommunity."
+            )
+
+            self._brave_config_row = Adw.ActionRow()
+            self._brave_config_row.set_title("Configurar Brave para PJe Office")
+            self._brave_config_row.set_subtitle(
+                "Desativa Shields nos domínios judiciais e importa certificado"
+            )
+            self._brave_config_row.set_icon_name("web-browser-symbolic")
+            self._brave_config_row.set_activatable(True)
+            self._brave_config_row.connect("activated", self._on_configure_brave)
+            arrow_brave = Gtk.Image.new_from_icon_name("go-next-symbolic")
+            self._brave_config_row.add_suffix(arrow_brave)
+            brave_group.add(self._brave_config_row)
+
+            self._brave_status_row = Adw.ActionRow()
+            self._brave_status_row.set_visible(False)
+            brave_group.add(self._brave_status_row)
+
+            content.append(brave_group)
+
         self.set_child(content)
 
         # Pending update info for install action
@@ -349,3 +379,67 @@ class SystemsView(Gtk.ScrolledWindow):
     @staticmethod
     def _on_system_clicked(_row: Adw.ActionRow, url: str) -> None:
         Gio.AppInfo.launch_default_for_uri(url, None)
+
+    def _on_configure_brave(self, _row: Adw.ActionRow) -> None:
+        """Configure Brave Shields for PJe domains and import PJe Office cert."""
+        import threading
+        from src.browser.brave_config import (
+            configure_brave_shields,
+            get_pje_domains,
+            import_pjeoffice_cert_nss,
+            is_brave_running,
+        )
+
+        if is_brave_running():
+            self._show_brave_status(
+                "Feche o Brave completamente antes de configurar",
+                "dialog-warning-symbolic",
+                "warning",
+            )
+            return
+
+        self._brave_config_row.set_sensitive(False)
+        self._brave_config_row.set_subtitle("Configurando…")
+
+        def configure_thread() -> None:
+            messages: list[str] = []
+
+            # Step 1: Configure Shields
+            domains = get_pje_domains()
+            ok, msg = configure_brave_shields(domains)
+            messages.append(msg)
+
+            # Step 2: Import PJe Office certificate
+            cert_ok, cert_msg = import_pjeoffice_cert_nss()
+            messages.append(cert_msg)
+
+            GLib.idle_add(on_done, ok, messages)
+
+        def on_done(success: bool, messages: list[str]) -> bool:
+            self._brave_config_row.set_sensitive(True)
+            self._brave_config_row.set_subtitle(
+                "Desativa Shields nos domínios judiciais e importa certificado"
+            )
+            icon_name = "emblem-ok-symbolic" if success else "dialog-warning-symbolic"
+            css_class = "success" if success else "warning"
+            self._show_brave_status(
+                " | ".join(messages), icon_name, css_class,
+            )
+            return False
+
+        threading.Thread(target=configure_thread, daemon=True).start()
+
+    def _show_brave_status(
+        self, message: str, icon_name: str, css_class: str,
+    ) -> None:
+        """Show a status message in the Brave config section."""
+        if not hasattr(self, "_brave_status_row"):
+            return
+        self._brave_status_row.set_visible(True)
+        self._brave_status_row.set_title(message)
+        self._brave_status_row.set_icon_name(icon_name)
+
+        # Clear old CSS classes
+        for cls in ("success", "warning", "error", "accent"):
+            self._brave_status_row.remove_css_class(cls)
+        self._brave_status_row.add_css_class(css_class)

@@ -91,6 +91,34 @@ Acesso rápido com um clique aos principais sistemas:
 - **Verificação de atualizações** — manual e automática (a cada 24h)
 - **Acesso rápido** para abrir o PJeOffice Pro
 
+### Brave — Configuração Automática para PJe Office
+
+> 🆕 **Solução inédita desenvolvida pelo time BigLinux / BigCommunity.**
+> Até então, não existia documentação ou solução pública para usar o PJe
+> Office com o navegador Brave no GNU/Linux.
+
+O Brave bloqueia, por padrão, a comunicação entre os sites dos tribunais e o
+PJe Office (servidor local na porta 8801). Isso acontece porque o **Brave
+Shields** impede requisições cross-origin para `localhost` com certificado
+auto-assinado.
+
+O BigCertificados resolve isso automaticamente com um clique:
+
+1. **Desativa o Shields** nos domínios judiciais conhecidos (PJe, PROJUDI,
+   e-SAJ, TST, TRT, TRF, CNJ)
+2. **Importa o certificado** do PJe Office no banco NSS do navegador
+3. O PJe Office passa a ser detectado normalmente pelo Brave
+
+**Configuração manual (sem o BigCertificados):**
+
+Se preferir configurar manualmente:
+
+1. Abra o Brave e acesse `https://127.0.0.1:8801` — aceite o aviso de
+   certificado
+2. No site do PJe, clique no **ícone do Brave Shields** (leão) na barra de
+   endereço → **Desative** o Shields
+3. Recarregue a página — o PJe Office será detectado
+
 ### Segurança
 
 - **Proteção por senha** — bloqueio opcional do aplicativo com senha definida
@@ -214,8 +242,8 @@ sudo pacman -S python python-gobject gtk4 libadwaita python-pykcs11 \
 sudo systemctl enable --now pcscd.service
 
 # Clone o repositório
-git clone https://github.com/big-comm/comm-lawyers.git
-cd comm-lawyers
+git clone https://github.com/xathay/big-advogados.git
+cd big-advogados
 
 # Execute
 python -m src.main
