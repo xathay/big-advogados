@@ -220,7 +220,7 @@ class SystemsView(Gtk.ScrolledWindow):
             self._brave_config_row.set_subtitle(
                 "Desativa Shields nos domínios judiciais e importa certificado"
             )
-            self._brave_config_row.set_icon_name("web-browser-symbolic")
+            self._brave_config_row.set_icon_name("brave-browser")
             self._brave_config_row.set_activatable(True)
             self._brave_config_row.connect("activated", self._on_configure_brave)
             arrow_brave = Gtk.Image.new_from_icon_name("go-next-symbolic")
