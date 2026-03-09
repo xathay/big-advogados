@@ -18,7 +18,7 @@ class PasswordSettingsDialog(Adw.Dialog):
         self._locked = is_lock_enabled()
         self.set_title("Proteção por Senha")
         self.set_content_width(420)
-        self.set_content_height(-1)
+        self.set_content_height(520)
         self.set_can_close(True)
 
         toolbar = Adw.ToolbarView()
@@ -49,9 +49,9 @@ class PasswordSettingsDialog(Adw.Dialog):
         status.set_title("Proteção desativada")
         status.set_description(
             "Defina uma senha para proteger o acesso ao gerenciador "
-            "de certificados. A senha será solicitada toda vez que "
-            "o aplicativo for aberto."
+            "de certificados."
         )
+        status.set_vexpand(False)
         box.append(status)
 
         group = Adw.PreferencesGroup()
@@ -89,9 +89,9 @@ class PasswordSettingsDialog(Adw.Dialog):
         status.set_icon_name("channel-secure-symbolic")
         status.set_title("Proteção ativada")
         status.set_description(
-            "Você pode alterar ou remover a senha de proteção. "
-            "Para isso, informe a senha atual."
+            "Altere ou remova a senha de proteção."
         )
+        status.set_vexpand(False)
         box.append(status)
 
         group = Adw.PreferencesGroup()

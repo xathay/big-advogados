@@ -1,13 +1,13 @@
 # BigCertificados
 
 Gerenciador de certificados digitais para advogados e profissionais do Direito
-no Linux — certificados A1 (PFX/P12) e A3 (token USB) em uma interface nativa
+no GNU/Linux — certificados A1 (PFX/P12) e A3 (token USB) em uma interface nativa
 moderna.
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
 ![GTK 4.0](https://img.shields.io/badge/GTK-4.0-4A86CF?logo=gnome&logoColor=white)
-![Platform: Linux](https://img.shields.io/badge/Platform-Linux-FCC624?logo=linux&logoColor=black)
+![Platform: GNU/Linux](https://img.shields.io/badge/Platform-GNU%2FLinux-FCC624?logo=linux&logoColor=black)
 ![Status: Em Desenvolvimento](https://img.shields.io/badge/Status-Em%20Desenvolvimento-orange?logo=git&logoColor=white)
 
 > ⚠️ **Este projeto está em fase de desenvolvimento e testes.**
@@ -17,7 +17,7 @@ moderna.
 
 ## Visão Geral
 
-BigCertificados é um aplicativo GTK4/Adwaita criado para o ecossistema do [BigLinux](https://biglinux.com.br) e do [CommunityBig](https://communitybig.org/) e distribuições Arch-based (EndeavourOS, CachyOS, Manjaro, Garuda Linux e outros). Ele simplifica o uso de certificados digitais no Linux — uma tarefa
+BigCertificados é um aplicativo GTK4/Adwaita criado para o ecossistema do [BigLinux](https://biglinux.com.br) e do [CommunityBig](https://communitybig.org/) e distribuições Arch-based (EndeavourOS, CachyOS, Manjaro, Garuda Linux e outros). Ele simplifica o uso de certificados digitais no GNU/Linux — uma tarefa
 historicamente complexa para quem precisa acessar sistemas judiciais eletrônicos
 como PJe, PROJUDI e e-SAJ.
 
@@ -273,4 +273,4 @@ Este projeto está licenciado sob a Licença MIT — veja o arquivo
 Desenvolvido para a comunidade [CommunityBig](https://communitybig.org/) e
 [BigLinux](https://www.biglinux.com.br/).
 
-Feito com cuidado para a comunidade jurídica brasileira no Linux
+Feito com cuidado para a comunidade jurídica brasileira no GNU/Linux

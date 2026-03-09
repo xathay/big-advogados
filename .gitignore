@@ -24,3 +24,9 @@ Thumbs.db
 # App config (user data)
 applock.json
 settings.json
+
+# makepkg build artifacts
+pkg/
+src_pkg/
+*.pkg.tar
+*.pkg.tar.*
