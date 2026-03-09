@@ -196,15 +196,20 @@ class BigCertificadosApp(Adw.Application):
     def _on_about(self, *_args: object) -> None:
         about = Adw.AboutDialog()
         about.set_application_name("BigCertificados")
-        about.set_developer_name("BigLinux")
+        about.set_developer_name("BigLinux Team")
         about.set_version(CURRENT_VERSION)
         about.set_comments(
-            "Gerenciador de certificados digitais para advogados brasileiros.\n"
-            "Suporte a tokens A3 (PKCS#11) e certificados A1 (PFX)."
+            "Gerenciador de certificados digitais para advogados "
+            "e profissionais do Direito no GNU/Linux.\n\n"
+            "Suporte a tokens A3 (PKCS#11) e certificados A1 (PFX).\n\n"
+            "Integração com navegadores, sistemas judiciais "
+            "eletrônicos e PJeOffice Pro."
         )
-        about.set_website("https://github.com/biglinux/bigcertificados")
+        about.set_website("https://github.com/xathay/big-advogados")
         about.set_application_icon("bigcertificados")
-        about.set_license_type(Gtk.License.GPL_3_0)
+        about.set_license_type(Gtk.License.MIT_X11)
+        about.set_developers(["Leonardo Athayde <leoathayde@gmail.com>"])
+        about.set_copyright("© 2025 BigLinux Team")
 
         if self._window:
             about.present(self._window)
