@@ -28,14 +28,13 @@ sistemas judiciais eletrônicos do Brasil.
 
 ## Screenshots
 
-<p align="center">
-  <img src="docs/screenshots/tokens.png" alt="Detecção de Tokens USB" width="380">
-  <img src="docs/screenshots/certificado-a1.png" alt="Certificado A1" width="380">
-</p>
-<p align="center">
-  <img src="docs/screenshots/certificados.png" alt="Certificados" width="380">
-  <img src="docs/screenshots/sistemas.png" alt="Sistemas Judiciais" width="380">
-</p>
+| Detecção de Tokens USB | Certificado A1 |
+|:---:|:---:|
+| ![Tokens](docs/screenshots/tokens.png) | ![Certificado A1](docs/screenshots/certificado-a1.png) |
+
+| Certificados Instalados | Sistemas Judiciais |
+|:---:|:---:|
+| ![Certificados](docs/screenshots/certificados.png) | ![Sistemas](docs/screenshots/sistemas.png) |
 
 ## Funcionalidades
 
