@@ -8,6 +8,10 @@ moderna.
 ![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
 ![GTK 4.0](https://img.shields.io/badge/GTK-4.0-4A86CF?logo=gnome&logoColor=white)
 ![Platform: Linux](https://img.shields.io/badge/Platform-Linux-FCC624?logo=linux&logoColor=black)
+![Status: Em Desenvolvimento](https://img.shields.io/badge/Status-Em%20Desenvolvimento-orange?logo=git&logoColor=white)
+
+> ⚠️ **Este projeto está em fase de desenvolvimento e testes.**
+> Ainda não está pronto para uso em produção. Use por sua conta e risco.
 
 ---
 
@@ -66,7 +70,8 @@ Acesso rápido com um clique aos principais sistemas:
 | PROJUDI — TJBA | Processo Judicial Digital (sistema legado) |
 | e-SAJ — TJBA | Sistema de Automação da Justiça — Consulta |
 
-Em breve serão adicionados outros sistemas processuais eletrônicos. 
+> 🔜 **Novos sistemas em breve!** Outros tribunais e sistemas processuais
+> eletrônicos serão adicionados nas próximas versões.
 
 ### PJeOffice Pro
 
