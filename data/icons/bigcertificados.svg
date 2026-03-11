@@ -1,97 +1,74 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+     viewBox="0 0 512 512" width="512" height="512">
   <defs>
-    <!-- CommunityBig gradient: accent blue → purple -->
-    <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#0f0f2d"/>
-      <stop offset="50%" stop-color="#1a1a3e"/>
-      <stop offset="100%" stop-color="#151530"/>
+    <!-- Blue gradient background (security/professional theme) -->
+    <linearGradient id="bgGrad" x1=".05" x2="1" y2="1">
+      <stop offset=".2" stop-color="#1a3a6c" stop-opacity=".9"/>
+      <stop offset=".205" stop-color="#4374ba"/>
+      <stop offset="1" stop-color="#1e4d8c"/>
     </linearGradient>
-    <!-- Shield fill: blue → purple accent gradient -->
-    <linearGradient id="shieldFill" x1="0" y1="0" x2="0.5" y2="1">
-      <stop offset="0%" stop-color="#0a84ff"/>
-      <stop offset="60%" stop-color="#bf5af2"/>
-      <stop offset="100%" stop-color="#a884ff"/>
-    </linearGradient>
-    <!-- Inner glow -->
-    <radialGradient id="glow" cx="0.5" cy="0.4" r="0.5">
-      <stop offset="0%" stop-color="#5ac8fa" stop-opacity="0.3"/>
-      <stop offset="100%" stop-color="#0a84ff" stop-opacity="0"/>
-    </radialGradient>
     <!-- Lock body gradient -->
     <linearGradient id="lockGrad" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#f5f5f7"/>
-      <stop offset="100%" stop-color="#d4d4d4"/>
+      <stop offset="100%" stop-color="#d4d4d8"/>
     </linearGradient>
-    <!-- Shadow -->
-    <filter id="shadow" x="-8%" y="-8%" width="116%" height="120%">
-      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000" flood-opacity="0.4"/>
-    </filter>
-    <!-- Subtle inner shadow on shield -->
-    <filter id="innerGlow" x="-10%" y="-10%" width="120%" height="120%">
-      <feGaussianBlur in="SourceAlpha" stdDeviation="6" result="blur"/>
-      <feOffset dx="0" dy="2"/>
-      <feComposite in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1"/>
-      <feFlood flood-color="#5ac8fa" flood-opacity="0.4"/>
-      <feComposite in2="SourceGraphic" operator="in"/>
-      <feMerge>
-        <feMergeNode/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
   </defs>
 
   <!-- Background: rounded square -->
-  <rect x="24" y="24" width="464" height="464" rx="88" ry="88" fill="url(#bgGrad)" filter="url(#shadow)"/>
+  <rect width="512" height="512" rx="108" fill="url(#bgGrad)" opacity=".9"/>
 
-  <!-- Ambient glow behind shield -->
-  <ellipse cx="256" cy="240" rx="160" ry="160" fill="url(#glow)"/>
-
-  <!-- Shield shape -->
-  <path d="M256 80
-           C256 80 136 116 100 152
-           C100 152 84 264 104 336
-           C124 408 196 452 256 468
-           C316 452 388 408 408 336
-           C428 264 412 152 412 152
-           C376 116 256 80 256 80Z"
-        fill="url(#shieldFill)" opacity="0.92" filter="url(#innerGlow)"/>
-
-  <!-- Shield inner edge highlight -->
-  <path d="M256 104
-           C256 104 152 136 120 168
-           C120 168 106 268 124 332
-           C142 396 204 436 256 450
-           C308 436 370 396 388 332
-           C406 268 392 168 392 168
-           C360 136 256 104 256 104Z"
-        fill="none" stroke="#5ac8fa" stroke-width="1.5" opacity="0.35"/>
-
-  <!-- Lock: shackle (arc) -->
-  <path d="M216 228 L216 196 C216 164 232 148 256 148 C280 148 296 164 296 196 L296 228"
-        fill="none" stroke="url(#lockGrad)" stroke-width="14" stroke-linecap="round"/>
-
-  <!-- Lock body (rounded rect) -->
-  <rect x="200" y="224" width="112" height="96" rx="14" ry="14" fill="url(#lockGrad)"/>
-
-  <!-- Keyhole -->
-  <circle cx="256" cy="260" r="14" fill="#1a1a3e"/>
-  <path d="M256 268 L248 296 L264 296 Z" fill="#1a1a3e"/>
-
-  <!-- Certificate lines below lock (document representation) -->
-  <g opacity="0.7">
-    <rect x="208" y="340" width="96" height="5" rx="2.5" fill="#f5f5f7"/>
-    <rect x="216" y="354" width="80" height="4" rx="2" fill="#a1a1a6"/>
-    <rect x="220" y="366" width="72" height="4" rx="2" fill="#a1a1a6"/>
+  <!-- BigLinux "big" mark — extracted from official BigLinux branding -->
+  <g transform="translate(256, 120) scale(9.5) translate(-26.5, -12)"
+     fill="#fff" fill-opacity=".95">
+    <!-- Right helix of "big" -->
+    <path d="M31.768 7.438q-.296 0-.623.054c-3.527.59-3.38 4.696-3.38 4.696s0
+             1.817 1.696 2.736c1.411.814 2.223-.063 2.361-.201s3.009-3.73
+             2.547 3.088c0 0 1.01-1.1 1.074-3.717.062-2.618-1.623-2.78
+             -1.623-2.78s-.743-.188-2.22 1.409c-1.245 1.344-1.518 1.506
+             -1.573 1.523h-.004s-.418.295-.468-.445-.21-2.978
+             2.047-4.192c2.25-1.213 3.35 1.756 3.35 1.756s-.248-3.923
+             -3.184-3.927"/>
+    <!-- Dot of "i" -->
+    <path d="M25.404 9.14a1.197 1.597 77.92 0 0-.414.046 1.197 1.597
+             77.92 0 0-1.308 1.504 1.197 1.597 77.92 0 0 1.808.838 1.197
+             1.597 77.92 0 0 1.313-1.506 1.197 1.597 77.92 0 0-1.399-.882"/>
+    <!-- Left helix of "big" -->
+    <path d="M17.973 9.645c-.015.017-1.011 1.115-1.073 3.713-.061
+             2.618 1.618 2.774 1.618 2.774s.743.184 2.22-1.41c1.2-1.297
+             1.5-1.495 1.567-1.524h.013s.416-.29.463.447c.048.738.211
+             2.987-2.045 4.194-2.253 1.206-3.35-1.756-3.35-1.756s.287
+             4.459 3.811 3.871c3.527-.588 3.38-4.695 3.38-4.695s.003-1.81
+             -1.698-2.73c-1.411-.815-2.225.062-2.365.202s-3 3.729
+             -2.541-3.086"/>
+    <!-- Connector detail -->
+    <path d="M25.914 11.821a1 1 0 0 0-.16.002 1.223 1.223 0 0
+             0-1.125 1.317 1.2 1.2 0 0 0 .055.283s.708 2.825 4.535
+             2.916c0 0-2.206-1.577-2.157-3.393a1.22 1.22 0 0
+             0-1.148-1.125"/>
   </g>
 
-  <!-- Digital certificate seal / checkmark badge -->
-  <circle cx="340" cy="364" r="32" fill="#30d158" opacity="0.95"/>
-  <circle cx="340" cy="364" r="24" fill="none" stroke="#fff" stroke-width="2.5" opacity="0.6"/>
-  <polyline points="326,364 335,374 356,352" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Lock: shackle (arc) -->
+  <path d="M212 270 L212 232 C212 188 232 168 256 168 C280 168 300 188 300 232 L300 270"
+        fill="none" stroke="url(#lockGrad)" stroke-width="18" stroke-linecap="round"/>
 
-  <!-- Small accent dots (community feel) -->
-  <circle cx="140" cy="400" r="4" fill="#bf5af2" opacity="0.5"/>
-  <circle cx="380" cy="120" r="3" fill="#5ac8fa" opacity="0.4"/>
-  <circle cx="130" cy="140" r="3" fill="#0a84ff" opacity="0.4"/>
+  <!-- Lock body (rounded rect) -->
+  <rect x="192" y="264" width="128" height="108" rx="16" fill="url(#lockGrad)"/>
+
+  <!-- Keyhole -->
+  <circle cx="256" cy="304" r="16" fill="#1e3a6a"/>
+  <path d="M256 316 L247 346 L265 346 Z" fill="#1e3a6a"/>
+
+  <!-- Certificate lines below lock -->
+  <g opacity=".6">
+    <rect x="210" y="394" width="92" height="5" rx="2.5" fill="#f5f5f7"/>
+    <rect x="218" y="408" width="76" height="4" rx="2" fill="#b0b0b6"/>
+    <rect x="224" y="420" width="64" height="4" rx="2" fill="#b0b0b6"/>
+  </g>
+
+  <!-- Green checkmark badge -->
+  <circle cx="340" cy="392" r="32" fill="#30d158" opacity=".95"/>
+  <circle cx="340" cy="392" r="24" fill="none" stroke="#fff" stroke-width="2.5" opacity=".6"/>
+  <polyline points="326,392 335,403 356,380" fill="none" stroke="#fff"
+            stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="data/icons/bigcertificados.svg" alt="BigCertificados" width="128" height="128">
+</p>
+
 # BigCertificados
 
 Gerenciador de certificados digitais para advogados e profissionais do Direito
@@ -28,15 +32,9 @@ carimbo visual ICP-Brasil e oferece acesso rápido aos principais sistemas
 judiciais eletrônicos do Brasil — organizados por estado (BA, SP) e tribunais
 superiores (STJ, TST, CNJ).
 
-## Screenshots
+## Screenshot
 
-| Detecção de Tokens USB | Certificado A1 |
-|:---:|:---:|
-| ![Tokens](docs/screenshots/tokens.png) | ![Certificado A1](docs/screenshots/certificado-a1.png) |
-
-| Certificados Instalados | Sistemas Judiciais |
-|:---:|:---:|
-| ![Certificados](docs/screenshots/certificados.png) | ![Sistemas](docs/screenshots/sistemas.png) |
+![BigCertificados](docs/screenshots/tokens.png)
 
 ## Funcionalidades
 
