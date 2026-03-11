@@ -227,7 +227,7 @@ contrário, sugere o pacote AUR adequado para o modelo de token detectado.
 ## Arquitetura
 
 ```
-comm-lawyers/
+big-advogados/
 ├── src/                          # Código-fonte principal
 │   ├── main.py                   # Ponto de entrada
 │   ├── application.py            # Adw.Application (instância única)
@@ -253,6 +253,7 @@ comm-lawyers/
 │   │   └── token_database.py     # Banco de dados de tokens USB
 │   │
 │   ├── browser/                  # Integração com navegadores
+│   │   ├── brave_config.py       # Configuração automática do Brave para PJe
 │   │   ├── browser_detect.py     # Detecção de navegadores e perfis
 │   │   └── nss_config.py         # Configuração NSS via certutil + Papers
 │   │
@@ -304,8 +305,8 @@ sudo pacman -S python python-gobject gtk4 libadwaita python-pykcs11 \
   python-pyudev python-cryptography python-pikepdf python-reportlab \
   python-pillow python-asn1crypto python-oscrypto nss pcsclite ccid opensc
 
-# Instale o endesive (assinador de PDFs)
-pip install --user endesive
+# Instale o endesive (assinador de PDFs) — disponível no AUR
+yay -S python-endesive
 
 # Habilite o serviço de smart card
 sudo systemctl enable --now pcscd.service

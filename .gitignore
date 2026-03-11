@@ -25,6 +25,9 @@ Thumbs.db
 applock.json
 settings.json
 
+# Planning docs (internal)
+bigcertificados.md
+
 # makepkg build artifacts
 pkg/
 src_pkg/
