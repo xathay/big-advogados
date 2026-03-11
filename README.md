@@ -23,8 +23,10 @@ como PJe, PROJUDI e e-SAJ.
 
 O aplicativo detecta automaticamente tokens USB, carrega certificados A1 em
 formato PFX/P12, instala os certificados nos navegadores (Firefox, Chrome,
-Chromium, Brave, Edge, Opera) via NSS, e oferece acesso rápido aos principais
-sistemas judiciais eletrônicos do Brasil.
+Chromium, Brave, Edge, Opera) via NSS, assina documentos PDF digitalmente com
+carimbo visual ICP-Brasil e oferece acesso rápido aos principais sistemas
+judiciais eletrônicos do Brasil — organizados por estado (BA, SP) e tribunais
+superiores (STJ, TST, CNJ).
 
 ## Screenshots
 
@@ -68,20 +70,37 @@ sistemas judiciais eletrônicos do Brasil.
 
 ### Sistemas Judiciais Eletrônicos
 
-Acesso rápido com um clique aos principais sistemas:
+Acesso rápido com um clique, organizado por estado e nível:
+
+**Tribunais Superiores**
+
+| Sistema | Descrição |
+|---------|-----------|
+| PJe — STJ | Superior Tribunal de Justiça |
+| Consulta Processual — STJ | Pesquisa de processos no STJ |
+| PJe — TST | Tribunal Superior do Trabalho |
+| Portal PJe — CNJ | Conselho Nacional de Justiça |
+
+**Bahia**
 
 | Sistema | Descrição |
 |---------|-----------|
 | PJe — TJBA | 1ª e 2ª Instância — Tribunal de Justiça da Bahia |
 | PJe — TRF1 | 1ª e 2ª Instância — Tribunal Regional Federal |
-| PJe — TRT5 | Tribunal Regional do Trabalho 5ª Região (Bahia) |
-| PJe — TST | Tribunal Superior do Trabalho |
-| PJe — CNJ | Portal do Conselho Nacional de Justiça |
+| PJe — TRT5 | Tribunal Regional do Trabalho 5ª Região |
 | PROJUDI — TJBA | Processo Judicial Digital (sistema legado) |
 | e-SAJ — TJBA | Sistema de Automação da Justiça — Consulta |
 
-> 🔜 **Novos sistemas em breve!** Outros tribunais e sistemas processuais
-> eletrônicos serão adicionados nas próximas versões.
+**São Paulo**
+
+| Sistema | Descrição |
+|---------|-----------|
+| eSAJ — TJSP 1ª Instância | Consulta Processual 1º Grau |
+| eSAJ — TJSP 2ª Instância | Consulta Processual 2º Grau |
+| Portal eSAJ — TJSP | Portal de serviços eSAJ |
+
+> 🔜 **Novos tribunais em breve!** Outros estados e tribunais regionais
+> serão adicionados nas próximas versões.
 
 ### Assinador Digital de PDF
 
@@ -237,7 +256,7 @@ comm-lawyers/
 │   │
 │   ├── browser/                  # Integração com navegadores
 │   │   ├── browser_detect.py     # Detecção de navegadores e perfis
-│   │   └── nss_config.py         # Configuração NSS via certutil
+│   │   └── nss_config.py         # Configuração NSS via certutil + Papers
 │   │
 │   └── utils/                    # Utilitários
 │       ├── app_lock.py           # Hash e verificação de senha (PBKDF2)

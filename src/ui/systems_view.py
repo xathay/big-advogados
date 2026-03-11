@@ -21,61 +21,112 @@ from src.utils.updater import (
 )
 
 
-# Brazilian electronic judicial systems
-JUDICIAL_SYSTEMS = [
+# Brazilian electronic judicial systems organized by state/court level.
+JUDICIAL_STATES = [
     {
-        "name": "PJe — TJBA 1ª Instância",
-        "url": "https://pje.tjba.jus.br",
-        "description": "Processo Judicial Eletrônico — Tribunal de Justiça da Bahia",
-        "icon": "document-edit-symbolic",
+        "name": "Tribunais Superiores",
+        "subtitle": "STJ · TST · CNJ",
+        "icon": "starred-symbolic",
+        "systems": [
+            {
+                "name": "PJe — STJ",
+                "url": "https://pje.stj.jus.br/pje/login.seam",
+                "description": "Processo Judicial Eletrônico — Superior Tribunal de Justiça",
+                "icon": "document-edit-symbolic",
+            },
+            {
+                "name": "Consulta Processual — STJ",
+                "url": "https://processo.stj.jus.br/processo/pesquisa/",
+                "description": "Pesquisa de processos no STJ",
+                "icon": "system-search-symbolic",
+            },
+            {
+                "name": "PJe — TST",
+                "url": "https://pje.tst.jus.br",
+                "description": "PJe — Tribunal Superior do Trabalho",
+                "icon": "document-edit-symbolic",
+            },
+            {
+                "name": "Portal PJe — CNJ",
+                "url": "https://www.cnj.jus.br/programas-e-acoes/processo-judicial-eletronico-pje/",
+                "description": "Portal PJe — Conselho Nacional de Justiça",
+                "icon": "document-send-symbolic",
+            },
+        ],
     },
     {
-        "name": "PJe — TJBA 2ª Instância",
-        "url": "https://pje2g.tjba.jus.br",
-        "description": "PJe 2º Grau — TJBA",
-        "icon": "document-edit-symbolic",
+        "name": "Bahia",
+        "subtitle": "TJBA · TRF1 · TRT5",
+        "icon": "mark-location-symbolic",
+        "systems": [
+            {
+                "name": "PJe — TJBA 1ª Instância",
+                "url": "https://pje.tjba.jus.br",
+                "description": "Processo Judicial Eletrônico — Tribunal de Justiça da Bahia",
+                "icon": "document-edit-symbolic",
+            },
+            {
+                "name": "PJe — TJBA 2ª Instância",
+                "url": "https://pje2g.tjba.jus.br",
+                "description": "PJe 2º Grau — TJBA",
+                "icon": "document-edit-symbolic",
+            },
+            {
+                "name": "PJe — TRF1 1ª Instância",
+                "url": "https://pje1g.trf1.jus.br",
+                "description": "PJe — Tribunal Regional Federal da 1ª Região",
+                "icon": "document-edit-symbolic",
+            },
+            {
+                "name": "PJe — TRF1 2ª Instância",
+                "url": "https://pje2g.trf1.jus.br",
+                "description": "PJe 2º Grau — TRF1",
+                "icon": "document-edit-symbolic",
+            },
+            {
+                "name": "PJe — TRT5 (Bahia)",
+                "url": "https://pje.trt5.jus.br",
+                "description": "PJe — Tribunal Regional do Trabalho 5ª Região",
+                "icon": "document-edit-symbolic",
+            },
+            {
+                "name": "PROJUDI — TJBA",
+                "url": "https://projudi.tjba.jus.br",
+                "description": "Processo Judicial Digital — TJBA (sistema legado)",
+                "icon": "document-properties-symbolic",
+            },
+            {
+                "name": "e-SAJ — TJBA",
+                "url": "https://esaj.tjba.jus.br",
+                "description": "Sistema de Automação da Justiça — Consulta",
+                "icon": "system-search-symbolic",
+            },
+        ],
     },
     {
-        "name": "PJe — TRF1 1ª Instância",
-        "url": "https://pje1g.trf1.jus.br",
-        "description": "PJe — Tribunal Regional Federal da 1ª Região",
-        "icon": "document-edit-symbolic",
-    },
-    {
-        "name": "PJe — TRF1 2ª Instância",
-        "url": "https://pje2g.trf1.jus.br",
-        "description": "PJe 2º Grau — TRF1",
-        "icon": "document-edit-symbolic",
-    },
-    {
-        "name": "PROJUDI — TJBA",
-        "url": "https://projudi.tjba.jus.br",
-        "description": "Processo Judicial Digital — TJBA (sistema legado)",
-        "icon": "document-properties-symbolic",
-    },
-    {
-        "name": "e-SAJ — TJBA",
-        "url": "https://esaj.tjba.jus.br",
-        "description": "Sistema de Automação da Justiça — Consulta",
-        "icon": "system-search-symbolic",
-    },
-    {
-        "name": "PJe — TRT5 (Bahia)",
-        "url": "https://pje.trt5.jus.br",
-        "description": "PJe — Tribunal Regional do Trabalho 5ª Região",
-        "icon": "document-edit-symbolic",
-    },
-    {
-        "name": "PJe — TST",
-        "url": "https://pje.tst.jus.br",
-        "description": "PJe — Tribunal Superior do Trabalho",
-        "icon": "document-edit-symbolic",
-    },
-    {
-        "name": "PJe — CNJ",
-        "url": "https://www.cnj.jus.br/programas-e-acoes/processo-judicial-eletronico-pje/",
-        "description": "Portal PJe — Conselho Nacional de Justiça",
-        "icon": "document-send-symbolic",
+        "name": "São Paulo",
+        "subtitle": "TJSP · eSAJ",
+        "icon": "mark-location-symbolic",
+        "systems": [
+            {
+                "name": "eSAJ — TJSP 1ª Instância",
+                "url": "https://esaj.tjsp.jus.br/cpopg/open.do",
+                "description": "Consulta Processual 1º Grau — eSAJ / TJSP",
+                "icon": "system-search-symbolic",
+            },
+            {
+                "name": "eSAJ — TJSP 2ª Instância",
+                "url": "https://esaj.tjsp.jus.br/cposg/open.do",
+                "description": "Consulta Processual 2º Grau — eSAJ / TJSP",
+                "icon": "system-search-symbolic",
+            },
+            {
+                "name": "Portal eSAJ — TJSP",
+                "url": "https://esaj.tjsp.jus.br/esaj/portal.do?servico=190090",
+                "description": "Portal de serviços eSAJ — TJSP",
+                "icon": "document-send-symbolic",
+            },
+        ],
     },
 ]
 
@@ -106,33 +157,36 @@ class SystemsView(Gtk.ScrolledWindow):
         desc.set_wrap(True)
         content.append(desc)
 
-        # Group: PJe Systems
-        pje_group = Adw.PreferencesGroup()
-        pje_group.set_title("PJe — Processo Judicial Eletrônico")
+        # Group: Judicial systems organized by state
+        systems_group = Adw.PreferencesGroup()
+        systems_group.set_title("PJe — Processo Judicial Eletrônico")
+        systems_group.set_description(
+            "Selecione o estado ou tribunal para acessar os sistemas disponíveis."
+        )
 
-        other_group = Adw.PreferencesGroup()
-        other_group.set_title("Outros Sistemas")
+        for state in JUDICIAL_STATES:
+            expander = Adw.ExpanderRow()
+            expander.set_title(state["name"])
+            expander.set_subtitle(state["subtitle"])
+            expander.set_icon_name(state["icon"])
 
-        for system in JUDICIAL_SYSTEMS:
-            row = Adw.ActionRow()
-            row.set_title(system["name"])
-            row.set_subtitle(system["description"])
-            row.set_icon_name(system["icon"])
-            row.set_activatable(True)
+            for system in state["systems"]:
+                row = Adw.ActionRow()
+                row.set_title(system["name"])
+                row.set_subtitle(system["description"])
+                row.set_icon_name(system["icon"])
+                row.set_activatable(True)
 
-            url = system["url"]
-            row.connect("activated", self._on_system_clicked, url)
+                url = system["url"]
+                row.connect("activated", self._on_system_clicked, url)
 
-            arrow = Gtk.Image.new_from_icon_name("go-next-symbolic")
-            row.add_suffix(arrow)
+                arrow = Gtk.Image.new_from_icon_name("go-next-symbolic")
+                row.add_suffix(arrow)
+                expander.add_row(row)
 
-            if "PJe" in system["name"] or "PROJUDI" in system["name"]:
-                pje_group.add(row)
-            else:
-                other_group.add(row)
+            systems_group.add(expander)
 
-        content.append(pje_group)
-        content.append(other_group)
+        content.append(systems_group)
 
         # PJeOffice Pro section
         pjeoffice_group = Adw.PreferencesGroup()
