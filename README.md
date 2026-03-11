@@ -83,6 +83,21 @@ Acesso rápido com um clique aos principais sistemas:
 > 🔜 **Novos sistemas em breve!** Outros tribunais e sistemas processuais
 > eletrônicos serão adicionados nas próximas versões.
 
+### Assinador Digital de PDF
+
+- **Assinatura digital** com certificado A1 (PFX/P12) em conformidade com
+  ICP-Brasil
+- **Padrão Adobe** — Adobe.PPKLite / adbe.pkcs7.detached / SHA-256, compatível
+  com Adobe Acrobat, Foxit, Okular e validadores do gov.br
+- **Carimbo visual** — selo de assinatura personalizado no rodapé do documento
+  com dados do signatário (nome, CPF, OAB, Autoridade Certificadora e data)
+- **Assinatura em lote** — assine múltiplos PDFs de uma só vez com barra de
+  progresso
+- **Opções de posicionamento** — carimbo na última página, primeira página ou
+  em todas as páginas
+- **Motivo e localidade** — campos personalizáveis para identificar o contexto
+  da assinatura
+
 ### PJeOffice Pro
 
 - **Detecção de instalação** com exibição da versão instalada
@@ -133,7 +148,7 @@ Se preferir configurar manualmente:
 
 - **GTK4 + Libadwaita** — interface nativa que respeita o tema do sistema
   (claro/escuro)
-- **4 abas organizadas** — Tokens, Certificado A1, Certificados, Sistemas
+- **5 abas organizadas** — Tokens, Certificado A1, Certificados, Sistemas e Assinador
 - **Redimensionável** — funciona em telas pequenas (mínimo 360×400) até
   monitores widescreen
 - **Rolagem inteligente** — todo o conteúdo é rolável quando a janela é
@@ -165,6 +180,33 @@ O BigCertificados reconhece automaticamente os seguintes modelos:
 Certificadoras brasileiras compatíveis:
 **Certisign, Serasa Experian, Soluti, Valid Certificadora, Safeweb, AC OAB**
 
+### Drivers PKCS#11 (Bibliotecas de Token)
+
+O BigCertificados **não instala** drivers proprietários automaticamente. Ele
+apenas detecta se o driver correto já está instalado no sistema e, caso
+contrário, sugere o pacote AUR adequado para o modelo de token detectado.
+
+**Fluxo de funcionamento:**
+
+1. O token USB é conectado e identificado pelo `vendor_id`/`product_id`
+2. O app consulta o banco de dados interno (~48 modelos) para identificar o
+   driver PKCS#11 necessário (ex: `libeToken.so`, `libaetpkcs11.so`)
+3. Verifica se o arquivo `.so` existe nos caminhos conhecidos do sistema
+4. Se não encontrar, sugere o pacote AUR correspondente para instalação
+
+**Pacotes de drivers disponíveis no AUR:**
+
+| Driver | Pacote | Origem | Tokens |
+|--------|--------|--------|--------|
+| SafeNet Authentication Client | `sac-core` | AUR | eToken 5110/5300/7300, IDPrime MD |
+| SafeSign Identity Client | `safesignidentityclient` | AUR | Tokens AET Europe, G&D StarSign |
+| WatchData ProxKey | `watchdata-proxkey` | AUR | ProxKey, GD e-Pass |
+| OpenSC (genérico) | `opensc` | pacman | Feitian, Athena, Bit4id, Cherry, ACS, HID, Yubico |
+
+> **Nota:** O pacote `opensc` (disponível no pacman) cobre a maioria dos tokens
+> genéricos. Instale com `sudo pacman -S opensc`. Para tokens SafeNet e
+> Gemalto/Thales, use `yay -S sac-core`.
+
 ## Arquitetura
 
 ```
@@ -178,6 +220,7 @@ comm-lawyers/
 │   │   ├── token_detect_view.py  # Detecção de tokens USB
 │   │   ├── a1_view.py            # Carregamento de certificados A1
 │   │   ├── certificate_view.py   # Visualização detalhada de certificados
+│   │   ├── signer_view.py        # Assinador digital de PDFs
 │   │   ├── systems_view.py       # Sistemas judiciais e PJeOffice Pro
 │   │   ├── pin_dialog.py         # Diálogo de PIN para tokens A3
 │   │   ├── lock_screen.py        # Tela de bloqueio por senha
@@ -188,6 +231,8 @@ comm-lawyers/
 │   │   ├── a1_manager.py         # Gerenciamento de certificados A1 (PFX)
 │   │   ├── a3_manager.py         # Gerenciamento de certificados A3 (PKCS#11)
 │   │   ├── parser.py             # Parser X.509 (cryptography)
+│   │   ├── pdf_signer.py         # Assinatura digital de PDFs (endesive)
+│   │   ├── stamp.py              # Gerador de carimbo visual (Pillow)
 │   │   └── token_database.py     # Banco de dados de tokens USB
 │   │
 │   ├── browser/                  # Integração com navegadores
@@ -226,6 +271,9 @@ comm-lawyers/
 | PyKCS11 | ≥ 1.5.11 | Comunicação PKCS#11 com tokens |
 | pyudev | ≥ 0.24.1 | Monitoramento USB via udev |
 | cryptography | ≥ 41.0 | Parsing X.509 e PFX |
+| endesive | ≥ 2.17 | Assinatura digital de PDFs |
+| pikepdf | ≥ 8.0 | Manipulação de PDFs |
+| Pillow | ≥ 10.0 | Geração de carimbo visual |
 | libnss3-tools | — | certutil para navegadores |
 | pcsclite / ccid | — | Serviço de smart card para tokens A3 |
 
@@ -236,7 +284,11 @@ comm-lawyers/
 ```bash
 # Instale as dependências do sistema
 sudo pacman -S python python-gobject gtk4 libadwaita python-pykcs11 \
-  python-pyudev python-cryptography nss pcsclite ccid opensc
+  python-pyudev python-cryptography python-pikepdf python-reportlab \
+  python-pillow python-asn1crypto python-oscrypto nss pcsclite ccid opensc
+
+# Instale o endesive (assinador de PDFs)
+pip install --user endesive
 
 # Habilite o serviço de smart card
 sudo systemctl enable --now pcscd.service
@@ -289,45 +341,9 @@ python -m src.main
 3. **Navegadores** — use o menu → "Configurar Navegadores" para instalar
    certificados nos navegadores detectados.
 4. **Sistemas** — acesse os sistemas judiciais com um clique na aba Sistemas.
-5. **Proteção** — ative a proteção por senha em menu → "Proteção por Senha".
-
-## Changelog
-
-### v0.1.0 — Lançamento Inicial (09/03/2026)
-
-#### Gerenciamento de Certificados
-- Importação e gerenciamento de certificados A1 (PFX/P12)
-- Detecção automática de tokens USB para certificados A3 (PKCS#11)
-- Visualização detalhada: titular, emissor, validade, número de série
-- Registro automático de módulos PKCS#11 via NSS em todos os navegadores
-
-#### Integração com Navegadores
-- Detecção automática de Firefox, Chrome, Chromium, Brave, Edge, Opera e Vivaldi
-- Instalação de certificados nos bancos NSS de cada navegador
-- **Configuração automática do Brave Shields** para compatibilidade com PJe Office — solução inédita no ecossistema BigLinux/BigCommunity
-
-#### PJe Office Pro
-- Instalação assistida do PJe Office Pro (download oficial CNJ/TRF3, verificação SHA-256)
-- Verificação automática de atualizações com opção de auto-check
-- Lançamento direto pelo gerenciador com ícone nativo
-- **Correção automática de HiDPI/4K** — detecção do fator de escala do monitor e aplicação de `-Dsun.java2d.uiScale` ao Java Swing para texto legível em monitores de alta resolução
-
-#### Sistemas Judiciais
-- Acesso rápido a PJe (TJBA 1ª e 2ª instância, TRF1), PROJUDI, e-SAJ, TRT5, TST e CNJ
-- Links diretos validados para cada tribunal
-
-#### Interface e Experiência
-- Interface nativa GTK4 + libadwaita seguindo as diretrizes GNOME HIG
-- 4 abas organizadas: Certificados A1, Tokens A3, Certificados (unificada) e Sistemas
-- Janela redimensionável com suporte a scroll em todas as views
-- Proteção por senha com PBKDF2-HMAC-SHA256 (600.000 iterações)
-- Diálogo Sobre com informações do projeto e equipe
-- Ícones universais compatíveis com todos os temas de ícones
-
-#### Empacotamento
-- PKGBUILD para Arch Linux / BigLinux / Manjaro e derivados
-- Arquivo `.desktop` para integração com o menu do sistema
-- Regras udev para detecção automática de tokens USB
+5. **Assinador** — selecione PDFs, escolha o certificado A1 e assine com
+   carimbo visual no rodapé do documento.
+6. **Proteção** — ative a proteção por senha em menu → "Proteção por Senha".
 
 ---
 

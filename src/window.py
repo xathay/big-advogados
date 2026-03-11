@@ -17,6 +17,7 @@ from src.ui.a1_view import A1CertificateView
 from src.ui.certificate_view import CertificateView
 from src.ui.token_detect_view import TokenDetectView
 from src.ui.systems_view import SystemsView
+from src.ui.signer_view import SignerView
 from src.ui.pin_dialog import PinDialog
 from src.ui.lock_screen import LockDialog
 from src.utils.udev_monitor import UdevMonitor
@@ -114,6 +115,13 @@ class MainWindow(Adw.ApplicationWindow):
         self._view_stack.add_titled_with_icon(
             self._systems_view, "systems", "Sistemas",
             "preferences-system-network-symbolic",
+        )
+
+        # Signer View
+        self._signer_view = SignerView()
+        self._view_stack.add_titled_with_icon(
+            self._signer_view, "signer", "Assinador",
+            "document-edit-symbolic",
         )
 
         toolbar_view.set_content(self._view_stack)

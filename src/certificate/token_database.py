@@ -629,3 +629,38 @@ class TokenDatabase:
 
     def unique_modules(self) -> set[str]:
         return set(self._by_module.keys())
+
+    def suggest_package(self, vid: int, pid: int) -> Optional[str]:
+        """Suggest an Arch/AUR package to install the driver for a token.
+
+        Returns the package name or None if unknown.
+        """
+        tokens = self.lookup_by_usb(vid, pid)
+        if not tokens:
+            return None
+        module = tokens[0].pkcs11_module
+        return _MODULE_TO_PACKAGE.get(module)
+
+    def suggest_package_for_module(self, module: str) -> Optional[str]:
+        """Suggest an Arch/AUR package for a given PKCS#11 module name."""
+        return _MODULE_TO_PACKAGE.get(module)
+
+
+# Maps PKCS#11 module filenames → recommended Arch/AUR package
+_MODULE_TO_PACKAGE: dict[str, str] = {
+    "libeToken.so": "sac-core",
+    "libeTPkcs11.so": "sac-core",
+    "libIDPrimePKCS11.so": "sac-core",
+    "libwdpkcs.so": "watchdata-proxkey",
+    "libepsng_p11.so": "opensc",
+    "libneloersen.so": "opensc",
+    "libgdpkcs11.so": "safesignidentityclient",
+    "libOcsCryptoki.so": "opensc",
+    "libbit4ipki.so": "opensc",
+    "libbit4xpki.so": "opensc",
+    "libASEP11.so": "opensc",
+    "opensc-pkcs11.so": "opensc",
+    "libaetpkcs11.so": "safesignidentityclient",
+    "libstarsignpkcs11.so": "opensc",
+    "libkNET_pkcs11.so": "opensc",
+}

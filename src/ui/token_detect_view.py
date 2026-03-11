@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import logging
+import subprocess
+import threading
 from typing import Optional
 
 import gi
@@ -10,6 +13,8 @@ gi.require_version("Adw", "1")
 from gi.repository import Gtk, Adw, GLib, Pango  # noqa: E402
 
 from src.certificate.token_database import TokenDatabase, TokenInfo
+
+log = logging.getLogger(__name__)
 
 
 class TokenDetectView(Gtk.ScrolledWindow):
@@ -99,9 +104,23 @@ class TokenDetectView(Gtk.ScrolledWindow):
             arrow = Gtk.Image.new_from_icon_name("go-next-symbolic")
             row.add_suffix(arrow)
         else:
-            status_label = Gtk.Label(label="Módulo não encontrado")
-            status_label.add_css_class("error")
-            row.add_suffix(status_label)
+            pkg = self._token_db.suggest_package(vid, pid)
+            if pkg:
+                status_label = Gtk.Label(label=f"Driver: {pkg}")
+                status_label.add_css_class("warning")
+                row.add_suffix(status_label)
+
+                install_btn = Gtk.Button()
+                install_btn.set_icon_name("software-install-symbolic")
+                install_btn.set_tooltip_text(f"Instalar {pkg}")
+                install_btn.set_valign(Gtk.Align.CENTER)
+                install_btn.add_css_class("flat")
+                install_btn.connect("clicked", self._on_install_driver, pkg, row)
+                row.add_suffix(install_btn)
+            else:
+                status_label = Gtk.Label(label="Módulo não encontrado")
+                status_label.add_css_class("error")
+                row.add_suffix(status_label)
 
         self._token_rows[key] = row
         self._token_group.add(row)
@@ -125,3 +144,40 @@ class TokenDetectView(Gtk.ScrolledWindow):
             self._token_group.remove(row)
         self._token_group.set_visible(False)
         self._status_page.set_visible(True)
+
+    def _on_install_driver(
+        self, _btn: Gtk.Button, package: str, row: Adw.ActionRow,
+    ) -> None:
+        """Suggest driver installation via terminal (yay/pacman)."""
+        _btn.set_sensitive(False)
+
+        # Determine if it's an AUR or pacman package
+        is_pacman = package == "opensc"
+        if is_pacman:
+            cmd = ["pkexec", "pacman", "-S", "--noconfirm", package]
+        else:
+            cmd = ["yay", "-S", "--noconfirm", package]
+
+        def install_thread() -> None:
+            try:
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True, text=True, timeout=300,
+                )
+                GLib.idle_add(on_done, result.returncode == 0, result.stderr)
+            except Exception as exc:
+                GLib.idle_add(on_done, False, str(exc))
+
+        def on_done(success: bool, error: str) -> bool:
+            _btn.set_sensitive(True)
+            if success:
+                row.set_subtitle(f"✓ {package} instalado com sucesso — reconecte o token")
+                _btn.set_icon_name("emblem-ok-symbolic")
+                _btn.set_sensitive(False)
+                log.info("Driver package '%s' installed successfully", package)
+            else:
+                row.set_subtitle(f"Falha ao instalar {package}")
+                log.error("Failed to install %s: %s", package, error)
+            return False
+
+        threading.Thread(target=install_thread, daemon=True).start()

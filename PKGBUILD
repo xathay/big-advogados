@@ -18,6 +18,12 @@ depends=(
     'ccid'
     'opensc'
     'nss'
+    'python-pikepdf'
+    'python-reportlab'
+    'python-pillow'
+    'python-asn1crypto'
+    'python-oscrypto'
+    'python-endesive'
 )
 source=()
 sha256sums=()
