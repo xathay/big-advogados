@@ -6,6 +6,13 @@ Comment=Gerenciador de certificados A1 e A3 para advogados brasileiros
 Exec=big-certificados
 Icon=bigcertificados
 Terminal=false
+StartupWMClass=com.bigcertificados
 Categories=Office;Security;Utility;
 Keywords=certificado;digital;token;advogado;PJe;A3;A1;PKCS11;
 StartupNotify=true
+
+Actions=SoftwareRender;
+
+[Desktop Action SoftwareRender]
+Name=Software Render
+Exec=SoftwareRender big-certificados
