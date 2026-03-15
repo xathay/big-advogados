@@ -21,7 +21,7 @@ moderna.
 
 ## Visão Geral
 
-BigCertificados é um aplicativo GTK4/Adwaita criado para o ecossistema do [BigLinux](https://biglinux.com.br) e do [BigCommunity](https://communitybig.org/) e distribuições Arch-based (EndeavourOS, CachyOS, Manjaro, Garuda Linux e outros). Ele simplifica o uso de certificados digitais no GNU/Linux — uma tarefa
+BigCertificados é um aplicativo GTK4/Adwaita criado para o ecossistema do [BigLinux](https://biglinux.com.br) e do [BigCommunity](https://communitybig.org/) e distribuições baseadas no Arch Linux (Manjaro, EndeavourOS, CachyOS e outras). Ele simplifica o uso de certificados digitais no GNU/Linux — uma tarefa
 historicamente complexa para quem precisa acessar sistemas judiciais eletrônicos
 como PJe, PROJUDI e e-SAJ.
 
