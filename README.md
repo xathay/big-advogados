@@ -132,25 +132,39 @@ Acesso rápido com um clique, organizado por estado e nível:
 > correção pública. No GNU/Linux com Wayland, o problema é ainda mais grave, porque
 > a detecção padrão de DPI simplesmente não funciona.
 
-O BigCertificados resolve isso automaticamente no launcher do PJeOffice:
+O BigCertificados resolve isso automaticamente no launcher do PJeOffice com uma
+cadeia de detecção robusta:
 
-1. **Detecta o DPI real** via `Xft.dpi` do X Resource Database — método que
-   funciona tanto em X11 quanto em Wayland (via XWayland)
-2. **Calcula o fator de escala** (`DPI ÷ 96`) e passa como parâmetro
-   `-Dsun.java2d.uiScale` ao Java
-3. O PJeOffice abre com **tamanho proporcional à resolução do monitor**
+1. **XWayland auto-detect** — localiza o processo XWayland ativo e obtém
+   `DISPLAY` e `XAUTHORITY` corretos (resolve variáveis desatualizadas quando
+   o XWayland reinicia em sessões Wayland)
+2. **Método 1 — `Xft.dpi`** do X Resource Database (funciona em X11 e
+   Wayland via XWayland)
+3. **Método 2 — Mutter DBus** — consulta o `DisplayConfig` do GNOME para
+   obter a escala fracionária do monitor (`1.25x`, `1.333x`, `1.5x`, etc.)
+4. **Método 3 — EDID físico** — lê o tamanho físico do painel (cm) e a
+   resolução nativa diretamente de `/sys/class/drm/` para calcular o DPI real
+   do monitor (ex.: 2560×1600 em 34 cm = 191 DPI)
+5. **Compensação `xwayland-native-scaling`** — quando o GNOME usa escala
+   fracionária com a feature `xwayland-native-scaling` habilitada, o XWayland
+   renderiza na resolução nativa do painel. Nesse caso, o fator EDID é
+   multiplicado pela escala do Mutter (ex.: `1.99 × 1.333 = 2.5`)
+6. O resultado final é passado como `-Dsun.java2d.uiScale` ao Java
 
-| Monitor | Escala GNOME | Xft.dpi | uiScale Java |
-|---------|-------------|---------|-------------|
-| Full HD (1080p) | 1.0x | 96 | 1 |
-| QHD / 2K (1.25x) | 1.25x | 120 | 1.25 |
-| QHD / 2K (1.5x) | 1.5x | 144 | 1.50 |
-| 4K / UHD | 2.0x | 192 | 2 |
-| 5K | 2.5x | 240 | 2.50 |
+| Cenário | Detecção | uiScale |
+|---------|----------|---------|
+| Full HD (1080p), sem escala | — | 1 |
+| QHD, GNOME 1.25x | Mutter DBus | 1.25 |
+| QHD, GNOME 1.5x | Mutter DBus | 1.50 |
+| 4K / UHD, GNOME 2.0x | Xft.dpi ou Mutter | 2 |
+| WQXGA (2560×1600), GNOME 1.333x + xwayland-native-scaling | EDID (191 DPI) × Mutter (1.333) | 2.5 |
+| 5K, GNOME 2.0x | Xft.dpi ou EDID | 2.50 |
 
 > **Resultado:** diálogos como "Seleção de certificado" e a interface principal
 > do PJeOffice ficam legíveis e proporcionais em qualquer monitor — da tela
-> Full HD do notebook até um monitor 5K externo. Além disso, as janelas podem ser alteradas de tamanho.
+> Full HD do notebook até um monitor 5K externo. Funciona corretamente mesmo
+> com escalas fracionárias e `xwayland-native-scaling` habilitado. Além disso,
+> as janelas podem ser alteradas de tamanho.
 
 ### Brave — Configuração Automática para PJe Office
 
