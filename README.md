@@ -209,17 +209,11 @@ Se preferir configurar manualmente:
 - **GTK4 + Libadwaita** — interface nativa que respeita o tema do sistema
   (claro/escuro)
 - **5 abas organizadas** — Tokens, Certificado A1, Certificados, Sistemas e Assinador
-- **Redimensionável** — funciona em telas pequenas (mínimo 360×400) até
   monitores widescreen
-- **Rolagem inteligente** — todo o conteúdo é rolável quando a janela é
   reduzida
-
 ## Tokens Suportados
-
 O BigCertificados reconhece automaticamente os seguintes modelos:
-
 | Fabricante | Modelos |
-|------------|---------|
 | SafeNet (Thales) | eToken 5110, 5300, 7300, PRO 72K, PRO Java |
 | Gemalto (Thales) | IDBridge CT40/CT710/K30/K50, IDPrime MD |
 | Watchdata | ProxKey, GD e-Pass |
@@ -228,6 +222,7 @@ O BigCertificados reconhece automaticamente os seguintes modelos:
 | GD Burti | StarSign CUT S |
 | Oberthur (IDEMIA) | IDOne Cosmo V7 |
 | Bit4id | miniLector EVO, Digital-DNA Key |
+  | certifi | ≥ 2023.7 | Validação de certificados HTTPS |
 | Athena | ASEDrive IIIe, ASECard Crypto |
 | ACS | ACR38U, ACR39U |
 | Cherry | ST-2000, SmartTerminal |
@@ -236,10 +231,15 @@ O BigCertificados reconhece automaticamente os seguintes modelos:
 | Yubico | YubiKey 5 NFC, 5C, 5Ci |
 | Kryptus | kNET HSM Token |
 | AET Europe | SafeSign Token |
+  | certifi | ≥ 2023.7 | Validação de certificados HTTPS |
 
 Certificadoras brasileiras compatíveis:
 **Certisign, Serasa Experian, Soluti, Valid Certificadora, Safeweb, AC OAB**
 
+  # Instale o certifi (validação HTTPS)
+  sudo pacman -S python-certifi
+  # Ou via pip (ambiente virtual)
+  pip install certifi
 ### Drivers PKCS#11 (Bibliotecas de Token)
 
 O BigCertificados **não instala** drivers proprietários automaticamente. Ele
