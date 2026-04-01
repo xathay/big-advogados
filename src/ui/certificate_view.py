@@ -8,6 +8,12 @@ gi.require_version("Adw", "1")
 from gi.repository import Gtk, Adw, Pango  # noqa: E402
 
 from src.certificate.parser import CertificateInfo
+from src.ui.certificate_widgets import (
+    build_cert_details_group,
+    build_holder_group,
+    clear_container,
+    create_validity_banner,
+)
 
 
 class CertificateView(Gtk.ScrolledWindow):
@@ -32,74 +38,35 @@ class CertificateView(Gtk.ScrolledWindow):
         )
         content.append(self._status_page)
 
-        # Scrolled container for certificate details
-        self._scroll = Gtk.ScrolledWindow()
-        self._scroll.set_vexpand(True)
-        self._scroll.set_visible(False)
-        content.append(self._scroll)
-
+        # Certificate details (hidden initially)
         self._details_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         self._details_box.set_margin_top(8)
         self._details_box.set_margin_bottom(8)
-        self._details_box.set_margin_start(8)
-        self._details_box.set_margin_end(8)
-        self._scroll.set_child(self._details_box)
+        self._details_box.set_visible(False)
+        content.append(self._details_box)
 
-        self.set_child(content)
+        clamp = Adw.Clamp()
+        clamp.set_maximum_size(600)
+        clamp.set_tightening_threshold(400)
+        clamp.set_child(content)
+        self.set_child(clamp)
 
     def show_certificate(self, cert: CertificateInfo) -> None:
         """Display certificate details."""
         self._status_page.set_visible(False)
-        self._scroll.set_visible(True)
+        self._details_box.set_visible(True)
 
         # Clear old content
-        child = self._details_box.get_first_child()
-        while child:
-            next_child = child.get_next_sibling()
-            self._details_box.remove(child)
-            child = next_child
+        clear_container(self._details_box)
 
         # Validity banner
-        validity_bar = self._create_validity_bar(cert)
-        self._details_box.append(validity_bar)
+        self._details_box.append(create_validity_banner(cert))
 
         # Holder info group
-        holder_group = Adw.PreferencesGroup()
-        holder_group.set_title("Titular do Certificado")
-
-        self._add_info_row(holder_group, "Nome", cert.holder_name, "avatar-default-symbolic")
-        if cert.cpf:
-            self._add_info_row(holder_group, "CPF", cert.cpf, "contact-new-symbolic")
-        if cert.cnpj:
-            self._add_info_row(holder_group, "CNPJ", cert.cnpj, "contact-new-symbolic")
-        if cert.oab:
-            self._add_info_row(holder_group, "OAB", cert.oab, "emblem-documents-symbolic")
-        if cert.email:
-            self._add_info_row(holder_group, "E-mail", cert.email, "mail-unread-symbolic")
-
-        self._details_box.append(holder_group)
+        self._details_box.append(build_holder_group(cert))
 
         # Certificate details group
-        cert_group = Adw.PreferencesGroup()
-        cert_group.set_title("Dados do Certificado")
-
-        self._add_info_row(cert_group, "Nome Comum (CN)", cert.common_name)
-        self._add_info_row(cert_group, "Número de Série", cert.serial_number)
-        self._add_info_row(cert_group, "Emissora (CA)", cert.issuer_cn)
-        if cert.not_before:
-            self._add_info_row(
-                cert_group, "Válido Desde",
-                cert.not_before.strftime("%d/%m/%Y %H:%M"),
-            )
-        if cert.not_after:
-            self._add_info_row(
-                cert_group, "Válido Até",
-                cert.not_after.strftime("%d/%m/%Y %H:%M"),
-            )
-        if cert.key_usage:
-            self._add_info_row(cert_group, "Uso da Chave", cert.key_usage)
-
-        self._details_box.append(cert_group)
+        self._details_box.append(build_cert_details_group(cert))
 
     def show_certificates_list(self, certs: list[CertificateInfo]) -> None:
         """Show a list of certificates to choose from."""
@@ -109,7 +76,7 @@ class CertificateView(Gtk.ScrolledWindow):
                 "O token não contém certificados ou o PIN está incorreto."
             )
             self._status_page.set_visible(True)
-            self._scroll.set_visible(False)
+            self._details_box.set_visible(False)
             return
 
         if len(certs) == 1:
@@ -117,14 +84,10 @@ class CertificateView(Gtk.ScrolledWindow):
             return
 
         self._status_page.set_visible(False)
-        self._scroll.set_visible(True)
+        self._details_box.set_visible(True)
 
         # Clear
-        child = self._details_box.get_first_child()
-        while child:
-            next_child = child.get_next_sibling()
-            self._details_box.remove(child)
-            child = next_child
+        clear_container(self._details_box)
 
         group = Adw.PreferencesGroup()
         group.set_title("Certificados Encontrados")
@@ -150,57 +113,4 @@ class CertificateView(Gtk.ScrolledWindow):
             "Selecione um token e insira o PIN para visualizar os certificados."
         )
         self._status_page.set_visible(True)
-        self._scroll.set_visible(False)
-
-    def _create_validity_bar(self, cert: CertificateInfo) -> Gtk.Box:
-        bar = Gtk.Box(spacing=8)
-        bar.set_halign(Gtk.Align.FILL)
-        bar.add_css_class("card")
-        bar.set_margin_bottom(8)
-
-        inner = Gtk.Box(spacing=8)
-        inner.set_margin_top(12)
-        inner.set_margin_bottom(12)
-        inner.set_margin_start(12)
-        inner.set_margin_end(12)
-
-        if cert.is_expired:
-            icon = Gtk.Image.new_from_icon_name("dialog-error-symbolic")
-            icon.add_css_class("error")
-            label = Gtk.Label(label="CERTIFICADO EXPIRADO")
-            label.add_css_class("error")
-        elif cert.days_to_expire <= 30:
-            icon = Gtk.Image.new_from_icon_name("dialog-warning-symbolic")
-            icon.add_css_class("warning")
-            label = Gtk.Label(
-                label=f"EXPIRA EM {cert.days_to_expire} DIAS"
-            )
-            label.add_css_class("warning")
-        else:
-            icon = Gtk.Image.new_from_icon_name("emblem-ok-symbolic")
-            icon.add_css_class("success")
-            label = Gtk.Label(
-                label=f"VÁLIDO — expira em {cert.days_to_expire} dias"
-            )
-            label.add_css_class("success")
-
-        label.add_css_class("heading")
-        inner.append(icon)
-        inner.append(label)
-        bar.append(inner)
-        return bar
-
-    @staticmethod
-    def _add_info_row(
-        group: Adw.PreferencesGroup,
-        title: str,
-        value: str,
-        icon_name: str = "",
-    ) -> None:
-        row = Adw.ActionRow()
-        row.set_title(title)
-        row.set_subtitle(value)
-        if icon_name:
-            row.set_icon_name(icon_name)
-        row.set_subtitle_selectable(True)
-        group.add(row)
+        self._details_box.set_visible(False)

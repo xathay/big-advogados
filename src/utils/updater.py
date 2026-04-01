@@ -17,8 +17,11 @@ from src.utils.xdg import config_dir
 
 log = logging.getLogger(__name__)
 
-# Known installed version (from pjeoffice_installer.py constant)
-PJEOFFICE_KNOWN_VERSION = "2.5.16u"
+# Canonical PJeOffice version — single source of truth for the application
+PJEOFFICE_VERSION = "2.5.16u"
+
+# Known installed version (kept for backward compat; aliases PJEOFFICE_VERSION)
+PJEOFFICE_KNOWN_VERSION = PJEOFFICE_VERSION
 
 # Official download page
 PJEOFFICE_BASE_URL = "https://pje-office.pje.jus.br/pro/"

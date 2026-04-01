@@ -19,15 +19,19 @@ from src.certificate.pdf_signer import (
     batch_sign,
     sign_pdf,
     sign_pdf_a3,
+    sign_pdf_vidaas,
 )
 from src.certificate.a3_manager import A3Manager, TokenSlotInfo
 from src.certificate.parser import CertificateInfo
+from src.certificate.vidaas_manager import VidaaSManager, VidaaSMode, VidaaSState
 from src.browser.nss_config import import_pfx_chain_for_papers
+from src.ui.certificate_widgets import show_pfx_password_dialog
 
 log = logging.getLogger(__name__)
 
 CERT_TYPE_A1 = 0
 CERT_TYPE_A3 = 1
+CERT_TYPE_VIDAAS = 2
 
 
 class SignerView(Gtk.ScrolledWindow):
@@ -46,6 +50,8 @@ class SignerView(Gtk.ScrolledWindow):
         self._a3_pin: Optional[str] = None
         self._a3_cert_info: Optional[CertificateInfo] = None
         self._a3_cert_der: Optional[bytes] = None
+        self._vidaas_manager: Optional[VidaaSManager] = None
+        self._vidaas_cert_info: Optional[CertificateInfo] = None
         self._signing_in_progress = False
 
         self._content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
@@ -53,7 +59,12 @@ class SignerView(Gtk.ScrolledWindow):
         self._content.set_margin_bottom(12)
         self._content.set_margin_start(12)
         self._content.set_margin_end(12)
-        self.set_child(self._content)
+
+        clamp = Adw.Clamp()
+        clamp.set_maximum_size(600)
+        clamp.set_tightening_threshold(400)
+        clamp.set_child(self._content)
+        self.set_child(clamp)
 
         self._build_empty_state()
         self._build_form()
@@ -72,24 +83,68 @@ class SignerView(Gtk.ScrolledWindow):
         self._content.append(self._status_page)
 
     def _build_form(self) -> None:
-        """Build the signing form (hidden until user starts)."""
-        self._form_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        """Build the signing wizard as a 4-step flow."""
+        self._form_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self._form_box.set_visible(False)
         self._content.append(self._form_box)
 
-        # ── PDF files section ──
+        # ── Step indicator ──
+        self._step_labels: list[Gtk.Label] = []
+        step_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        step_bar.set_halign(Gtk.Align.CENTER)
+        step_bar.set_margin_top(8)
+        step_bar.set_margin_bottom(12)
+
+        step_names = ["Documentos", "Certificado", "Opções", "Assinar"]
+        for i, name in enumerate(step_names):
+            pill = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            pill.set_margin_start(4)
+            pill.set_margin_end(4)
+
+            num = Gtk.Label(label=str(i + 1))
+            num.add_css_class("caption")
+            num.add_css_class("accent")
+            num.set_width_chars(3)
+            num.set_xalign(0.5)
+            pill.append(num)
+
+            lbl = Gtk.Label(label=name)
+            lbl.add_css_class("caption")
+            pill.append(lbl)
+
+            self._step_labels.append(lbl)
+            step_bar.append(pill)
+
+            if i < len(step_names) - 1:
+                sep = Gtk.Label(label="›")
+                sep.add_css_class("dim-label")
+                sep.set_margin_start(4)
+                sep.set_margin_end(4)
+                step_bar.append(sep)
+
+        self._form_box.append(step_bar)
+
+        # ── Wizard Stack ──
+        self._wizard_stack = Gtk.Stack()
+        self._wizard_stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT)
+        self._wizard_stack.set_transition_duration(200)
+        self._wizard_stack.set_vexpand(True)
+        self._form_box.append(self._wizard_stack)
+
+        # ══ Step 1: PDF files ══
+        step1 = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        step1.set_margin_top(4)
+
         pdf_group = Adw.PreferencesGroup()
         pdf_group.set_title("Documentos PDF")
         pdf_group.set_description("Arquivos que serão assinados digitalmente")
-        self._form_box.append(pdf_group)
+        step1.append(pdf_group)
 
-        # PDF file list
         self._pdf_list_box = Gtk.ListBox()
         self._pdf_list_box.set_selection_mode(Gtk.SelectionMode.NONE)
         self._pdf_list_box.add_css_class("boxed-list")
         pdf_group.add(self._pdf_list_box)
 
-        # Add/remove PDF buttons
         pdf_btn_box = Gtk.Box(spacing=8)
         pdf_btn_box.set_halign(Gtk.Align.CENTER)
         pdf_btn_box.set_margin_top(8)
@@ -110,13 +165,24 @@ class SignerView(Gtk.ScrolledWindow):
 
         pdf_group.add(pdf_btn_box)
 
-        # ── Certificate section ──
+        # Nav: Next
+        step1_nav = self._make_nav_box(None, "Próximo: Certificado")
+        self._step1_next = step1_nav._next_btn  # noqa: SLF001
+        self._step1_next.connect("clicked", lambda _b: self._go_to_step("step2"))
+        self._step1_next.set_sensitive(False)
+        step1.append(step1_nav)
+
+        self._wizard_stack.add_named(step1, "step1")
+
+        # ══ Step 2: Certificate ══
+        step2 = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        step2.set_margin_top(4)
+
         cert_group = Adw.PreferencesGroup()
         cert_group.set_title("Certificado Digital")
         cert_group.set_description("Selecione o tipo e o certificado para assinatura")
-        self._form_box.append(cert_group)
+        step2.append(cert_group)
 
-        # Certificate type selector
         self._cert_type_row = Adw.ComboRow()
         self._cert_type_row.set_title("Tipo de Certificado")
         self._cert_type_row.set_subtitle("Escolha o tipo de certificado digital")
@@ -124,13 +190,13 @@ class SignerView(Gtk.ScrolledWindow):
         type_model = Gtk.StringList.new([
             "Certificado A1 (PFX/P12)",
             "Token A3 (Smart Card)",
+            "VidaaS Connect (Nuvem)",
         ])
         self._cert_type_row.set_model(type_model)
         self._cert_type_row.set_selected(CERT_TYPE_A1)
         self._cert_type_row.connect("notify::selected", self._on_cert_type_changed)
         cert_group.add(self._cert_type_row)
 
-        # Certificate row
         self._cert_row = Adw.ActionRow()
         self._cert_row.set_title("Nenhum certificado selecionado")
         self._cert_row.set_subtitle("Clique para selecionar o arquivo PFX")
@@ -147,7 +213,6 @@ class SignerView(Gtk.ScrolledWindow):
         self._change_cert_btn = change_cert_btn
         self._cert_row.add_suffix(change_cert_btn)
 
-        # Remove certificate button (hidden by default)
         self._remove_cert_btn = Gtk.Button()
         self._remove_cert_btn.set_icon_name("edit-clear-symbolic")
         self._remove_cert_btn.set_tooltip_text("Remover certificado")
@@ -160,31 +225,40 @@ class SignerView(Gtk.ScrolledWindow):
 
         cert_group.add(self._cert_row)
 
-        # ── Signature options ──
+        # Nav: Back / Next
+        step2_nav = self._make_nav_box("Voltar", "Próximo: Opções")
+        step2_nav._back_btn.connect("clicked", lambda _b: self._go_to_step("step1"))  # noqa: SLF001
+        self._step2_next = step2_nav._next_btn  # noqa: SLF001
+        self._step2_next.connect("clicked", lambda _b: self._go_to_step("step3"))
+        self._step2_next.set_sensitive(False)
+        step2.append(step2_nav)
+
+        self._wizard_stack.add_named(step2, "step2")
+
+        # ══ Step 3: Signature options ══
+        step3 = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        step3.set_margin_top(4)
+
         opts_group = Adw.PreferencesGroup()
         opts_group.set_title("Opções da Assinatura")
-        self._form_box.append(opts_group)
+        step3.append(opts_group)
 
-        # Reason
         self._reason_row = Adw.EntryRow()
         self._reason_row.set_title("Motivo")
         self._reason_row.set_text("Documento assinado digitalmente")
         opts_group.add(self._reason_row)
 
-        # Location
         self._location_row = Adw.EntryRow()
         self._location_row.set_title("Local")
         self._location_row.set_text("")
         opts_group.add(self._location_row)
 
-        # Visible signature toggle
         self._visible_row = Adw.SwitchRow()
         self._visible_row.set_title("Carimbo visível")
         self._visible_row.set_subtitle("Insere selo de assinatura no rodapé do PDF")
         self._visible_row.set_active(True)
         opts_group.add(self._visible_row)
 
-        # Page position
         self._page_row = Adw.ComboRow()
         self._page_row.set_title("Página do carimbo")
         page_model = Gtk.StringList.new([
@@ -196,45 +270,14 @@ class SignerView(Gtk.ScrolledWindow):
         self._page_row.set_selected(0)
         opts_group.add(self._page_row)
 
-        # ── Sign button ──
-        self._sign_btn = Gtk.Button(label="Assinar PDF(s)")
-        self._sign_btn.add_css_class("suggested-action")
-        self._sign_btn.add_css_class("pill")
-        self._sign_btn.set_halign(Gtk.Align.CENTER)
-        self._sign_btn.set_margin_top(16)
-        self._sign_btn.set_margin_bottom(8)
-        self._sign_btn.set_sensitive(False)
-        self._sign_btn.connect("clicked", self._on_sign_clicked)
-        self._form_box.append(self._sign_btn)
-
-        # ── Progress ──
-        self._progress_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        self._progress_box.set_visible(False)
-        self._progress_box.set_margin_top(8)
-        self._form_box.append(self._progress_box)
-
-        self._progress_bar = Gtk.ProgressBar()
-        self._progress_bar.set_show_text(True)
-        self._progress_box.append(self._progress_bar)
-
-        self._progress_label = Gtk.Label()
-        self._progress_label.add_css_class("dim-label")
-        self._progress_box.append(self._progress_label)
-
-        # ── Results ──
-        self._results_group = Adw.PreferencesGroup()
-        self._results_group.set_title("Resultados")
-        self._results_group.set_visible(False)
-        self._form_box.append(self._results_group)
-
-        # ── Papers configuration ──
+        # Papers configuration
         papers_group = Adw.PreferencesGroup()
         papers_group.set_title("Visualizador de PDFs")
         papers_group.set_description(
             "Importe o certificado no sistema para que o Papers "
             "(GNOME) valide as assinaturas digitais"
         )
-        self._form_box.append(papers_group)
+        step3.append(papers_group)
 
         self._papers_row = Adw.ActionRow()
         self._papers_row.set_title("Configurar Papers")
@@ -253,6 +296,55 @@ class SignerView(Gtk.ScrolledWindow):
 
         papers_group.add(self._papers_row)
 
+        # Nav: Back / Sign
+        step3_nav = self._make_nav_box("Voltar", None)
+        step3_nav._back_btn.connect("clicked", lambda _b: self._go_to_step("step2"))  # noqa: SLF001
+        step3.append(step3_nav)
+
+        # Sign button (replaces "Next" on last form step)
+        self._sign_btn = Gtk.Button(label="Assinar PDF(s)")
+        self._sign_btn.add_css_class("suggested-action")
+        self._sign_btn.add_css_class("pill")
+        self._sign_btn.set_halign(Gtk.Align.CENTER)
+        self._sign_btn.set_margin_top(8)
+        self._sign_btn.set_margin_bottom(8)
+        self._sign_btn.set_sensitive(False)
+        self._sign_btn.connect("clicked", self._on_sign_clicked)
+        step3.append(self._sign_btn)
+
+        self._wizard_stack.add_named(step3, "step3")
+
+        # ══ Step 4: Progress + Results ══
+        self._step4_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        self._step4_box.set_margin_top(4)
+
+        self._progress_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        self._progress_box.set_margin_top(8)
+        self._step4_box.append(self._progress_box)
+
+        self._progress_bar = Gtk.ProgressBar()
+        self._progress_bar.set_show_text(True)
+        self._progress_box.append(self._progress_bar)
+
+        self._progress_label = Gtk.Label()
+        self._progress_label.add_css_class("dim-label")
+        self._progress_box.append(self._progress_label)
+
+        self._results_group = Adw.PreferencesGroup()
+        self._results_group.set_title("Resultados")
+        self._results_group.set_visible(False)
+        self._step4_box.append(self._results_group)
+
+        # "New signing" button
+        self._new_signing_btn = Gtk.Button(label="Nova Assinatura")
+        self._new_signing_btn.add_css_class("pill")
+        self._new_signing_btn.set_halign(Gtk.Align.CENTER)
+        self._new_signing_btn.set_margin_top(16)
+        self._new_signing_btn.connect("clicked", lambda _b: self._go_to_step("step1"))
+        self._step4_box.append(self._new_signing_btn)
+
+        self._wizard_stack.add_named(self._step4_box, "step4")
+
         # ── Select PDFs button (initially visible) ──
         select_btn = Gtk.Button(label="Selecionar Arquivos PDF")
         select_btn.add_css_class("suggested-action")
@@ -262,6 +354,43 @@ class SignerView(Gtk.ScrolledWindow):
         select_btn.connect("clicked", self._on_add_pdf_clicked)
         self._select_initial_btn = select_btn
         self._content.append(select_btn)
+
+    def _make_nav_box(
+        self, back_label: str | None, next_label: str | None,
+    ) -> Gtk.Box:
+        """Create a navigation bar with optional Back/Next buttons."""
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        box.set_halign(Gtk.Align.CENTER)
+        box.set_margin_top(16)
+        box.set_margin_bottom(8)
+
+        if back_label:
+            back_btn = Gtk.Button(label=back_label)
+            back_btn.add_css_class("pill")
+            box.append(back_btn)
+            box._back_btn = back_btn  # noqa: SLF001
+
+        if next_label:
+            next_btn = Gtk.Button(label=next_label)
+            next_btn.add_css_class("suggested-action")
+            next_btn.add_css_class("pill")
+            box.append(next_btn)
+            box._next_btn = next_btn  # noqa: SLF001
+
+        return box
+
+    def _go_to_step(self, step_name: str) -> None:
+        """Navigate to a wizard step and update the step indicator."""
+        self._wizard_stack.set_visible_child_name(step_name)
+
+        step_index = {"step1": 0, "step2": 1, "step3": 2, "step4": 3}.get(step_name, 0)
+        for i, lbl in enumerate(self._step_labels):
+            if i == step_index:
+                lbl.remove_css_class("dim-label")
+                lbl.add_css_class("accent")
+            else:
+                lbl.remove_css_class("accent")
+                lbl.add_css_class("dim-label")
 
     # ── PDF file management ──────────────────────────────────────
 
@@ -357,7 +486,7 @@ class SignerView(Gtk.ScrolledWindow):
     # ── Certificate type switching ─────────────────────────────
 
     def _on_cert_type_changed(self, row: Adw.ComboRow, _pspec: object) -> None:
-        """Handle certificate type change between A1 and A3."""
+        """Handle certificate type change between A1, A3, and VidaaS."""
         self._cert_type = row.get_selected()
         self._clear_certificate_state()
 
@@ -365,10 +494,14 @@ class SignerView(Gtk.ScrolledWindow):
             self._cert_row.set_subtitle("Clique para selecionar o arquivo PFX")
             self._change_cert_btn.set_icon_name("document-open-symbolic")
             self._change_cert_btn.set_tooltip_text("Selecionar certificado")
-        else:
+        elif self._cert_type == CERT_TYPE_A3:
             self._cert_row.set_subtitle("Clique para detectar o token A3")
             self._change_cert_btn.set_icon_name("media-removable-symbolic")
             self._change_cert_btn.set_tooltip_text("Detectar token")
+        elif self._cert_type == CERT_TYPE_VIDAAS:
+            self._cert_row.set_subtitle("Clique para conectar ao VidaaS Connect")
+            self._change_cert_btn.set_icon_name("network-wireless-symbolic")
+            self._change_cert_btn.set_tooltip_text("Conectar VidaaS")
 
     def _on_remove_cert_clicked(self, _btn: Gtk.Button) -> None:
         """Remove the currently selected certificate."""
@@ -400,8 +533,53 @@ class SignerView(Gtk.ScrolledWindow):
         """Route certificate selection based on type."""
         if self._cert_type == CERT_TYPE_A1:
             self._select_a1_cert()
-        else:
+        elif self._cert_type == CERT_TYPE_A3:
             self._select_a3_cert()
+        elif self._cert_type == CERT_TYPE_VIDAAS:
+            self._select_vidaas_cert()
+
+    def _select_vidaas_cert(self) -> None:
+        """Detect VidaaS cloud certificate via PKCS#11."""
+        if self._a3_manager is None:
+            self._cert_row.set_subtitle("Suporte a PKCS#11 indisponível")
+            return
+
+        if self._vidaas_manager is None:
+            self._vidaas_manager = VidaaSManager(self._a3_manager)
+
+        self._cert_row.set_subtitle("Detectando VidaaS Connect...")
+        self._cert_row.set_sensitive(False)
+
+        vidaas = self._vidaas_manager
+
+        def detect_thread() -> None:
+            status = vidaas.detect_vidaas_token()
+            GLib.idle_add(on_vidaas_detected, status)
+
+        def on_vidaas_detected(status) -> bool:
+            self._cert_row.set_sensitive(True)
+
+            if status.state != VidaaSState.CONNECTED:
+                self._cert_row.set_subtitle(status.message)
+                return False
+
+            # Token found — list certificates
+            certs = vidaas.list_certificates()
+            if not certs:
+                self._cert_row.set_subtitle(
+                    "Token VidaaS detectado mas sem certificados — "
+                    "verifique o app no celular"
+                )
+                return False
+
+            # Use first certificate
+            cert_info = certs[0]
+            self._vidaas_cert_info = cert_info
+            self._update_cert_row(cert_info)
+            self._update_sign_button_state()
+            return False
+
+        threading.Thread(target=detect_thread, daemon=True).start()
 
     def _select_a1_cert(self) -> None:
         """Open file chooser for PFX/P12 certificate."""
@@ -438,88 +616,13 @@ class SignerView(Gtk.ScrolledWindow):
 
     def _prompt_pfx_password(self, pfx_path: str) -> None:
         """Ask for PFX password and validate it."""
-        dialog = Adw.Dialog()
-        dialog.set_title("Senha do Certificado")
-        dialog.set_content_width(400)
-        dialog.set_content_height(220)
+        def on_success(path: str, password: str, cert_info: CertificateInfo) -> None:
+            self._pfx_path = path
+            self._pfx_password = password
+            self._update_cert_row(cert_info)
+            self._remove_cert_btn.set_visible(True)
 
-        toolbar = Adw.ToolbarView()
-        header = Adw.HeaderBar()
-        toolbar.add_top_bar(header)
-
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
-        box.set_margin_top(24)
-        box.set_margin_bottom(24)
-        box.set_margin_start(24)
-        box.set_margin_end(24)
-
-        filename = os.path.basename(pfx_path)
-        file_label = Gtk.Label(label=f"Arquivo: {filename}")
-        file_label.add_css_class("dim-label")
-        file_label.set_ellipsize(3)
-        box.append(file_label)
-
-        pwd_entry = Gtk.PasswordEntry()
-        pwd_entry.props.placeholder_text = "Senha do certificado PFX"
-        pwd_entry.set_show_peek_icon(True)
-        box.append(pwd_entry)
-
-        error_label = Gtk.Label()
-        error_label.add_css_class("error")
-        error_label.set_visible(False)
-        box.append(error_label)
-
-        btn_box = Gtk.Box(spacing=12, homogeneous=True)
-        btn_box.set_halign(Gtk.Align.END)
-
-        cancel_btn = Gtk.Button(label="Cancelar")
-        cancel_btn.connect("clicked", lambda _b: dialog.close())
-        btn_box.append(cancel_btn)
-
-        ok_btn = Gtk.Button(label="Confirmar")
-        ok_btn.add_css_class("suggested-action")
-        btn_box.append(ok_btn)
-
-        box.append(btn_box)
-
-        def on_confirm(*_args: object) -> None:
-            password = pwd_entry.get_text()
-            ok_btn.set_sensitive(False)
-            cancel_btn.set_sensitive(False)
-
-            def validate_thread() -> None:
-                from src.certificate.a1_manager import A1Manager
-                mgr = A1Manager()
-                cert_info = mgr.load_pfx(pfx_path, password)
-                GLib.idle_add(on_validate_result, cert_info, password)
-
-            def on_validate_result(
-                cert_info: Optional[CertificateInfo], pwd: str,
-            ) -> bool:
-                if cert_info is not None:
-                    self._pfx_path = pfx_path
-                    self._pfx_password = pwd
-                    self._update_cert_row(cert_info)
-                    self._remove_cert_btn.set_visible(True)
-                    dialog.close()
-                else:
-                    error_label.set_label("Senha incorreta ou arquivo inválido")
-                    error_label.set_visible(True)
-                    ok_btn.set_sensitive(True)
-                    cancel_btn.set_sensitive(True)
-                    pwd_entry.grab_focus()
-                return False
-
-            threading.Thread(target=validate_thread, daemon=True).start()
-
-        ok_btn.connect("clicked", on_confirm)
-        pwd_entry.connect("activate", on_confirm)
-
-        toolbar.set_content(box)
-        dialog.set_child(toolbar)
-
-        window = self.get_root()
-        dialog.present(window)
+        show_pfx_password_dialog(self, pfx_path, on_success, ok_label="Confirmar")
 
     def _update_cert_row(self, cert_info: CertificateInfo) -> None:
         """Update the certificate row with loaded certificate info."""
@@ -772,32 +875,39 @@ class SignerView(Gtk.ScrolledWindow):
     # ── State transitions ────────────────────────────────────────
 
     def _transition_to_form(self) -> None:
-        """Show the signing form, hide the empty state."""
+        """Show the signing wizard, hide the empty state."""
         self._status_page.set_visible(False)
         self._select_initial_btn.set_visible(False)
         self._form_box.set_visible(True)
+        self._go_to_step("step1")
 
     def _transition_to_empty(self) -> None:
-        """Show the empty state, hide the form."""
+        """Show the empty state, hide the wizard."""
         self._status_page.set_visible(True)
         self._select_initial_btn.set_visible(True)
         self._form_box.set_visible(False)
 
     def _update_sign_button_state(self) -> None:
-        """Enable/disable sign button based on current state."""
+        """Enable/disable sign button and wizard nav based on current state."""
         has_pdfs = len(self._pdf_paths) > 0
 
         if self._cert_type == CERT_TYPE_A1:
             has_cert = self._pfx_path is not None and self._pfx_password is not None
-        else:
+        elif self._cert_type == CERT_TYPE_A3:
             has_cert = (
                 self._a3_cert_info is not None
                 and self._a3_pin is not None
                 and self._a3_slot_id is not None
             )
+        else:
+            has_cert = self._vidaas_cert_info is not None
 
         can_sign = has_pdfs and has_cert and not self._signing_in_progress
         self._sign_btn.set_sensitive(can_sign)
+
+        # Update wizard step navigation
+        self._step1_next.set_sensitive(has_pdfs)
+        self._step2_next.set_sensitive(has_cert)
 
         count = len(self._pdf_paths)
         if count == 1:
@@ -815,12 +925,18 @@ class SignerView(Gtk.ScrolledWindow):
         if self._cert_type == CERT_TYPE_A1:
             if not self._pfx_path or not self._pfx_password:
                 return
-        else:
+        elif self._cert_type == CERT_TYPE_A3:
             if not self._a3_cert_der or not self._a3_pin or self._a3_manager is None:
+                return
+        elif self._cert_type == CERT_TYPE_VIDAAS:
+            if self._vidaas_manager is None or not self._vidaas_manager.is_connected:
+                return
+            if self._vidaas_cert_info is None:
                 return
 
         self._signing_in_progress = True
         self._sign_btn.set_sensitive(False)
+        self._go_to_step("step4")
         self._progress_box.set_visible(True)
         self._results_group.set_visible(False)
         self._progress_bar.set_fraction(0.0)
@@ -852,12 +968,18 @@ class SignerView(Gtk.ScrolledWindow):
         a3_manager: Optional[A3Manager] = None
         a3_cert_der: Optional[bytes] = None
 
+        vidaas_manager: Optional[VidaaSManager] = None
+        vidaas_cert_info: Optional[CertificateInfo] = None
+
         if cert_type == CERT_TYPE_A1:
             pfx_path = self._pfx_path
             pfx_password = self._pfx_password
-        else:
+        elif cert_type == CERT_TYPE_A3:
             a3_manager = self._a3_manager
             a3_cert_der = self._a3_cert_der
+        elif cert_type == CERT_TYPE_VIDAAS:
+            vidaas_manager = self._vidaas_manager
+            vidaas_cert_info = self._vidaas_cert_info
 
         def signing_thread() -> None:
             results: list[SignatureResult] = []
@@ -878,9 +1000,14 @@ class SignerView(Gtk.ScrolledWindow):
                         pdf_path, pfx_path, pfx_password,
                         output, options,
                     )
-                else:
+                elif cert_type == CERT_TYPE_A3:
                     result = sign_pdf_a3(
                         pdf_path, a3_manager, a3_cert_der,
+                        output, options,
+                    )
+                elif cert_type == CERT_TYPE_VIDAAS:
+                    result = sign_pdf_vidaas(
+                        pdf_path, vidaas_manager, vidaas_cert_info,
                         output, options,
                     )
                 results.append(result)
@@ -954,18 +1081,18 @@ class SignerView(Gtk.ScrolledWindow):
 
             self._results_group.add(row)
 
-        # Replace old results group in the form
-        # Find and remove old results group
-        child = self._form_box.get_first_child()
+        # Replace old results group in step4
+        child = self._step4_box.get_first_child()
         while child:
             next_child = child.get_next_sibling()
             if isinstance(child, Adw.PreferencesGroup) and child != self._results_group:
                 title = child.get_title()
                 if title == "Resultados":
-                    self._form_box.remove(child)
+                    self._step4_box.remove(child)
             child = next_child
 
-        self._form_box.append(self._results_group)
+        # Insert results before the "Nova Assinatura" button
+        self._step4_box.insert_child_after(self._results_group, self._progress_box)
         self._results_group.set_visible(True)
 
         # Update progress bar to complete

@@ -20,7 +20,9 @@ from gi.repository import Gtk, Adw, GLib, Pango  # noqa: E402
 
 log = logging.getLogger(__name__)
 
-PJEOFFICE_VERSION = "2.5.16u"
+# Import canonical version from updater (single source of truth)
+from src.utils.updater import PJEOFFICE_VERSION
+
 DOWNLOAD_URL = (
     f"https://pje-office.pje.jus.br/pro/"
     f"pjeoffice-pro-v{PJEOFFICE_VERSION}-linux_x64.zip"

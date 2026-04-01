@@ -1,6 +1,6 @@
 # Maintainer: Leonardo Athayde <leoathayde@gmail.com>
 pkgname=big-certificados
-pkgver=0.1.0
+pkgver=1.0.0
 pkgrel=1
 pkgdesc="Gerenciador de certificados digitais para advogados brasileiros"
 arch=('any')
@@ -24,6 +24,9 @@ depends=(
     'python-asn1crypto'
     'python-oscrypto'
     'python-endesive'
+)
+optdepends=(
+    'pcsc-tools: Diagnóstico de leitores PC/SC (pcsc_scan)'
 )
 source=()
 sha256sums=()

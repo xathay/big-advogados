@@ -13,6 +13,13 @@ from gi.repository import Gtk, Adw, GLib, Gio  # noqa: E402
 
 from src.certificate.a1_manager import A1Manager
 from src.certificate.parser import CertificateInfo
+from src.ui.certificate_widgets import (
+    build_cert_details_group,
+    build_holder_group,
+    clear_container,
+    create_validity_banner,
+    show_pfx_password_dialog,
+)
 
 log = logging.getLogger(__name__)
 
@@ -54,17 +61,11 @@ class A1CertificateView(Gtk.ScrolledWindow):
         content.append(self._load_btn)
 
         # Certificate details (hidden initially)
-        self._details_scroll = Gtk.ScrolledWindow()
-        self._details_scroll.set_vexpand(True)
-        self._details_scroll.set_visible(False)
-        content.append(self._details_scroll)
-
         self._details_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         self._details_box.set_margin_top(8)
         self._details_box.set_margin_bottom(8)
-        self._details_box.set_margin_start(8)
-        self._details_box.set_margin_end(8)
-        self._details_scroll.set_child(self._details_box)
+        self._details_box.set_visible(False)
+        content.append(self._details_box)
 
         # Action buttons (hidden initially)
         self._actions_box = Gtk.Box(spacing=12, homogeneous=True)
@@ -87,7 +88,11 @@ class A1CertificateView(Gtk.ScrolledWindow):
         remove_btn.connect("clicked", self._on_remove_clicked)
         self._actions_box.append(remove_btn)
 
-        self.set_child(content)
+        clamp = Adw.Clamp()
+        clamp.set_maximum_size(600)
+        clamp.set_tightening_threshold(400)
+        clamp.set_child(content)
+        self.set_child(clamp)
 
     def _on_load_clicked(self, _button: Gtk.Button) -> None:
         """Open file chooser for PFX/P12 file."""
@@ -128,112 +133,27 @@ class A1CertificateView(Gtk.ScrolledWindow):
 
     def _prompt_password(self, pfx_path: str) -> None:
         """Show password dialog for the PFX file."""
-        dialog = Adw.Dialog()
-        dialog.set_title("Senha do Certificado")
-        dialog.set_content_width(400)
-        dialog.set_content_height(220)
+        def on_success(path: str, password: str, cert_info: CertificateInfo) -> None:
+            self._current_pfx_path = path
+            self._current_password = password
+            self._cert_info = cert_info
+            self._show_certificate(cert_info)
 
-        toolbar = Adw.ToolbarView()
-        header = Adw.HeaderBar()
-        toolbar.add_top_bar(header)
-
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
-        box.set_margin_top(24)
-        box.set_margin_bottom(24)
-        box.set_margin_start(24)
-        box.set_margin_end(24)
-
-        # File name label
-        import os
-        filename = os.path.basename(pfx_path)
-        file_label = Gtk.Label(label=f"Arquivo: {filename}")
-        file_label.add_css_class("dim-label")
-        file_label.set_ellipsize(3)  # Pango.EllipsizeMode.END
-        box.append(file_label)
-
-        # Password entry
-        pwd_entry = Gtk.PasswordEntry()
-        pwd_entry.props.placeholder_text = "Senha do certificado PFX"
-        pwd_entry.set_show_peek_icon(True)
-        box.append(pwd_entry)
-
-        # Error label (hidden initially)
-        error_label = Gtk.Label()
-        error_label.add_css_class("error")
-        error_label.set_visible(False)
-        box.append(error_label)
-
-        # Buttons
-        btn_box = Gtk.Box(spacing=12, homogeneous=True)
-        btn_box.set_halign(Gtk.Align.END)
-
-        cancel_btn = Gtk.Button(label="Cancelar")
-        cancel_btn.connect("clicked", lambda _b: dialog.close())
-        btn_box.append(cancel_btn)
-
-        ok_btn = Gtk.Button(label="Abrir")
-        ok_btn.add_css_class("suggested-action")
-        btn_box.append(ok_btn)
-
-        box.append(btn_box)
-
-        def on_confirm(*_args: object) -> None:
-            password = pwd_entry.get_text()
-            ok_btn.set_sensitive(False)
-            cancel_btn.set_sensitive(False)
-            pwd_entry.set_sensitive(False)
-
-            def load_thread() -> None:
-                cert_info = self._a1_manager.load_pfx(pfx_path, password)
-                GLib.idle_add(on_load_result, cert_info, password)
-
-            def on_load_result(
-                cert_info: Optional[CertificateInfo], pwd: str,
-            ) -> bool:
-                if cert_info:
-                    self._current_pfx_path = pfx_path
-                    self._current_password = pwd
-                    self._cert_info = cert_info
-                    self._show_certificate(cert_info)
-                    dialog.close()
-                else:
-                    error_label.set_label("Senha incorreta ou arquivo inválido")
-                    error_label.set_visible(True)
-                    ok_btn.set_sensitive(True)
-                    cancel_btn.set_sensitive(True)
-                    pwd_entry.set_sensitive(True)
-                    pwd_entry.grab_focus()
-                return False
-
-            threading.Thread(target=load_thread, daemon=True).start()
-
-        ok_btn.connect("clicked", on_confirm)
-        pwd_entry.connect("activate", on_confirm)
-
-        toolbar.set_content(box)
-        dialog.set_child(toolbar)
-
-        window = self.get_root()
-        dialog.present(window)
+        show_pfx_password_dialog(self, pfx_path, on_success)
 
     def _show_certificate(self, cert: CertificateInfo) -> None:
         """Display the loaded certificate details."""
         self._status_page.set_visible(False)
         self._load_btn.set_visible(False)
 
-        self._details_scroll.set_visible(True)
+        self._details_box.set_visible(True)
         self._actions_box.set_visible(True)
 
         # Clear old content
-        child = self._details_box.get_first_child()
-        while child:
-            next_child = child.get_next_sibling()
-            self._details_box.remove(child)
-            child = next_child
+        clear_container(self._details_box)
 
         # Validity banner
-        validity_bar = self._create_validity_bar(cert)
-        self._details_box.append(validity_bar)
+        self._details_box.append(create_validity_banner(cert, prefix="A1"))
 
         # File info
         if self._current_pfx_path:
@@ -248,43 +168,12 @@ class A1CertificateView(Gtk.ScrolledWindow):
             self._details_box.append(file_group)
 
         # Holder info
-        holder_group = Adw.PreferencesGroup()
-        holder_group.set_title("Titular do Certificado")
-
-        self._add_info_row(holder_group, "Nome", cert.holder_name, "avatar-default-symbolic")
-        if cert.cpf:
-            self._add_info_row(holder_group, "CPF", cert.cpf, "contact-new-symbolic")
-        if cert.cnpj:
-            self._add_info_row(holder_group, "CNPJ", cert.cnpj, "contact-new-symbolic")
-        if cert.oab:
-            self._add_info_row(holder_group, "OAB", cert.oab, "emblem-documents-symbolic")
-        if cert.email:
-            self._add_info_row(holder_group, "E-mail", cert.email, "mail-unread-symbolic")
-
-        self._details_box.append(holder_group)
+        self._details_box.append(build_holder_group(cert))
 
         # Certificate details
-        cert_group = Adw.PreferencesGroup()
-        cert_group.set_title("Dados do Certificado")
-
-        self._add_info_row(cert_group, "Tipo", "A1 (Arquivo PFX)")
-        self._add_info_row(cert_group, "Nome Comum (CN)", cert.common_name)
-        self._add_info_row(cert_group, "Número de Série", cert.serial_number)
-        self._add_info_row(cert_group, "Emissora (CA)", cert.issuer_cn)
-        if cert.not_before:
-            self._add_info_row(
-                cert_group, "Válido Desde",
-                cert.not_before.strftime("%d/%m/%Y %H:%M"),
-            )
-        if cert.not_after:
-            self._add_info_row(
-                cert_group, "Válido Até",
-                cert.not_after.strftime("%d/%m/%Y %H:%M"),
-            )
-        if cert.key_usage:
-            self._add_info_row(cert_group, "Uso da Chave", cert.key_usage)
-
-        self._details_box.append(cert_group)
+        self._details_box.append(
+            build_cert_details_group(cert, cert_type_label="A1 (Arquivo PFX)")
+        )
 
     def _on_remove_clicked(self, _button: Gtk.Button) -> None:
         """Remove the loaded certificate and reset the view."""
@@ -316,13 +205,9 @@ class A1CertificateView(Gtk.ScrolledWindow):
         self._cert_info = None
 
         # Clear details
-        child = self._details_box.get_first_child()
-        while child:
-            next_child = child.get_next_sibling()
-            self._details_box.remove(child)
-            child = next_child
+        clear_container(self._details_box)
 
-        self._details_scroll.set_visible(False)
+        self._details_box.set_visible(False)
         self._actions_box.set_visible(False)
         self._status_page.set_visible(True)
         self._load_btn.set_visible(True)
@@ -371,56 +256,3 @@ class A1CertificateView(Gtk.ScrolledWindow):
             from src.window import MainWindow
             if isinstance(window, MainWindow):
                 window._set_status(message)
-
-    def _create_validity_bar(self, cert: CertificateInfo) -> Gtk.Box:
-        bar = Gtk.Box(spacing=8)
-        bar.set_halign(Gtk.Align.FILL)
-        bar.add_css_class("card")
-        bar.set_margin_bottom(8)
-
-        inner = Gtk.Box(spacing=8)
-        inner.set_margin_top(12)
-        inner.set_margin_bottom(12)
-        inner.set_margin_start(12)
-        inner.set_margin_end(12)
-
-        if cert.is_expired:
-            icon = Gtk.Image.new_from_icon_name("dialog-error-symbolic")
-            icon.add_css_class("error")
-            label = Gtk.Label(label="CERTIFICADO A1 EXPIRADO")
-            label.add_css_class("error")
-        elif cert.days_to_expire <= 30:
-            icon = Gtk.Image.new_from_icon_name("dialog-warning-symbolic")
-            icon.add_css_class("warning")
-            label = Gtk.Label(
-                label=f"EXPIRA EM {cert.days_to_expire} DIAS"
-            )
-            label.add_css_class("warning")
-        else:
-            icon = Gtk.Image.new_from_icon_name("emblem-ok-symbolic")
-            icon.add_css_class("success")
-            label = Gtk.Label(
-                label=f"CERTIFICADO A1 VÁLIDO — expira em {cert.days_to_expire} dias"
-            )
-            label.add_css_class("success")
-
-        label.add_css_class("heading")
-        inner.append(icon)
-        inner.append(label)
-        bar.append(inner)
-        return bar
-
-    @staticmethod
-    def _add_info_row(
-        group: Adw.PreferencesGroup,
-        title: str,
-        value: str,
-        icon_name: str = "",
-    ) -> None:
-        row = Adw.ActionRow()
-        row.set_title(title)
-        row.set_subtitle(value)
-        if icon_name:
-            row.set_icon_name(icon_name)
-        row.set_subtitle_selectable(True)
-        group.add(row)

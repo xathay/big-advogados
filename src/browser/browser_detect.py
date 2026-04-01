@@ -94,6 +94,7 @@ def find_chromium_profiles() -> list[BrowserProfile]:
             ("Brave", Path.home() / ".config" / "BraveSoftware" / "Brave-Browser"),
             ("Vivaldi", Path.home() / ".config" / "vivaldi"),
             ("Microsoft Edge", Path.home() / ".config" / "microsoft-edge"),
+            ("Opera", Path.home() / ".config" / "opera"),
         ]:
             if config_dir.is_dir():
                 profiles.append(BrowserProfile(

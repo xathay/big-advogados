@@ -580,6 +580,21 @@ _TOKEN_LIST: list[TokenInfo] = [
         ),
         description="Token rebranded SafeNet vendido pela Serasa",
     ),
+
+    # ── VidaaS Connect (Virtual Token / Cloud) ────────────────────────
+    TokenInfo(
+        vendor="Valid Certificadora",
+        model="VidaaS Connect",
+        vid=0x0000, pid=0x0000,
+        pkcs11_module="opensc-pkcs11.so",
+        search_paths=(
+            "/usr/lib/opensc-pkcs11.so",
+            "/usr/lib/pkcs11/opensc-pkcs11.so",
+            "/usr/lib64/opensc-pkcs11.so",
+            "/usr/lib/x86_64-linux-gnu/opensc-pkcs11.so",
+        ),
+        description="Certificado digital em nuvem VidaaS (Valid Certificadora)",
+    ),
 ]
 
 

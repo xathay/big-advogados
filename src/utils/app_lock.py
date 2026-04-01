@@ -87,7 +87,7 @@ def verify_password(password: str) -> bool:
         salt,
         iterations,
     )
-    return secrets.compare_digest(dk.hex(), stored_hash)
+    return secrets.compare_digest(dk, bytes.fromhex(stored_hash))
 
 
 def remove_password() -> None:

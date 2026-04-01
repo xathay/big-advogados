@@ -8,6 +8,7 @@ Uses certutil and modutil from nss-tools package.
 from __future__ import annotations
 
 import logging
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -27,16 +28,7 @@ SHARED_NSS_DB = Path.home() / ".pki" / "nssdb"
 
 def _find_tool(name: str) -> Optional[str]:
     """Check if an NSS tool is available."""
-    try:
-        result = subprocess.run(
-            ["which", name],
-            capture_output=True, text=True, timeout=5,
-        )
-        if result.returncode == 0:
-            return result.stdout.strip()
-    except Exception:
-        pass
-    return None
+    return shutil.which(name)
 
 
 def is_nss_tools_available() -> bool:
@@ -304,3 +296,114 @@ def _extract_cn(cert: x509.Certificate) -> str:
     except Exception:
         pass
     return cert.subject.rfc4514_string()[:60]
+
+
+# ── VidaaS Connect browser registration ──────────────────────────────
+
+
+VIDAAS_MODULE_NAME = "VidaaS_Connect"
+
+
+def register_vidaas_in_all_browsers() -> dict[str, bool]:
+    """Register OpenSC PKCS#11 module (for VidaaS) in all browser profiles.
+
+    Returns dict mapping browser profile label → success.
+    """
+    from src.utils.vidaas_deps import find_opensc_module
+
+    opensc = find_opensc_module()
+    if opensc is None:
+        log.error("OpenSC module not found — cannot register VidaaS")
+        return {}
+
+    results: dict[str, bool] = {}
+    profiles = find_all_profiles()
+    seen_dbs: set[str] = set()
+
+    for profile in profiles:
+        db_key = str(profile.nss_db_path)
+        if db_key in seen_dbs:
+            results[f"{profile.browser} ({profile.name})"] = True
+            continue
+        seen_dbs.add(db_key)
+
+        success = register_pkcs11_module(
+            profile.nss_db_path, opensc,
+            module_name=VIDAAS_MODULE_NAME,
+        )
+        results[f"{profile.browser} ({profile.name})"] = success
+
+    # Ensure shared NSS DB for Chromium-based browsers
+    shared_ok = register_vidaas_in_shared_nssdb()
+    if shared_ok and "shared_nssdb" not in results:
+        results["Shared NSS DB (~/.pki/nssdb)"] = True
+
+    return results
+
+
+def register_vidaas_in_shared_nssdb() -> bool:
+    """Register OpenSC in the shared NSS database used by Chromium browsers."""
+    from src.utils.vidaas_deps import find_opensc_module
+
+    shared_db = SHARED_NSS_DB
+    if not shared_db.is_dir():
+        ensure_nss_db(shared_db)
+
+    opensc = find_opensc_module()
+    if opensc is None:
+        return False
+
+    return register_pkcs11_module(
+        shared_db, opensc, module_name=VIDAAS_MODULE_NAME,
+    )
+
+
+def is_vidaas_registered_in_browser(nss_db_path: Path) -> bool:
+    """Check if VidaaS PKCS#11 module is registered in a browser's NSS DB."""
+    return is_module_registered(nss_db_path, VIDAAS_MODULE_NAME)
+
+
+def unregister_vidaas_from_all_browsers() -> dict[str, bool]:
+    """Remove VidaaS PKCS#11 module from all browser profiles."""
+    results: dict[str, bool] = {}
+    profiles = find_all_profiles()
+    seen_dbs: set[str] = set()
+
+    for profile in profiles:
+        db_key = str(profile.nss_db_path)
+        if db_key in seen_dbs:
+            results[f"{profile.browser} ({profile.name})"] = True
+            continue
+        seen_dbs.add(db_key)
+
+        success = unregister_pkcs11_module(
+            profile.nss_db_path,
+            module_name=VIDAAS_MODULE_NAME,
+        )
+        results[f"{profile.browser} ({profile.name})"] = success
+
+    return results
+
+
+def is_browser_running(browser_name: str) -> bool:
+    """Check if a browser process is currently running."""
+    process_names = {
+        "Firefox": "firefox",
+        "Google Chrome": "chrome",
+        "Chromium": "chromium",
+        "Brave": "brave",
+        "Vivaldi": "vivaldi",
+        "Microsoft Edge": "msedge",
+    }
+    proc_name = process_names.get(browser_name)
+    if proc_name is None:
+        return False
+    try:
+        result = subprocess.run(
+            ["pgrep", "-x", proc_name],
+            capture_output=True,
+            timeout=5,
+        )
+        return result.returncode == 0
+    except Exception:
+        return False

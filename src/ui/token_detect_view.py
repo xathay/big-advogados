@@ -32,12 +32,6 @@ class TokenDetectView(Gtk.ScrolledWindow):
         content.set_margin_start(12)
         content.set_margin_end(12)
 
-        # Header
-        header = Gtk.Label(label="Tokens Detectados")
-        header.add_css_class("title-2")
-        header.set_halign(Gtk.Align.START)
-        content.append(header)
-
         # Status page (no token connected)
         self._status_page = Adw.StatusPage()
         self._status_page.set_icon_name("dialog-information-symbolic")
@@ -62,7 +56,11 @@ class TokenDetectView(Gtk.ScrolledWindow):
         scan_btn.connect("clicked", self._on_scan_clicked)
         content.append(scan_btn)
 
-        self.set_child(content)
+        clamp = Adw.Clamp()
+        clamp.set_maximum_size(600)
+        clamp.set_tightening_threshold(400)
+        clamp.set_child(content)
+        self.set_child(clamp)
 
     def _on_scan_clicked(self, _button: Gtk.Button) -> None:
         self.emit_scan_request()
