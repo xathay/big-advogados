@@ -17,48 +17,48 @@ from src.ui.certificate_view import CertificateView
 from src.ui.token_detect_view import TokenDetectView
 
 
-class UnifiedCertificatesView(Gtk.ScrolledWindow):
+class UnifiedCertificatesView(Gtk.Box):
     """Unified view for managing A1 and A3 digital certificates.
 
-    Shows both A3 (Token USB) and A1 (PFX) sections vertically
-    in a single scrollable area, no internal tab switching.
+    Uses an ViewStack with internal tabs — A3 (Token USB) and A1 (PFX) —
+    to give each section full height for scrolling.
     """
 
     def __init__(self, token_db: TokenDatabase) -> None:
-        super().__init__()
-        self.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
 
-        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-        content.set_vexpand(True)
+        # Stack with two pages: A3 and A1
+        self._stack = Adw.ViewStack()
 
-        # ── A3 section: Token USB detection + certificates ──
-        self._a3_frame = Gtk.Frame()
-        self._a3_frame.set_margin_start(0)
-        self._a3_frame.set_margin_end(0)
-        self._a3_frame.add_css_class("view")
+        self.token_view = TokenDetectView(token_db)
+        self.cert_view = CertificateView()
 
+        # A3 page: detect → certs transition
         self._a3_stack = Gtk.Stack()
         self._a3_stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
         self._a3_stack.set_transition_duration(200)
-
-        self.token_view = TokenDetectView(token_db)
         self._a3_stack.add_named(self.token_view, "detect")
-
-        self.cert_view = CertificateView()
         self._a3_stack.add_named(self.cert_view, "certs")
-
         self._a3_stack.set_visible_child_name("detect")
-        self._a3_frame.set_child(self._a3_stack)
-        content.append(self._a3_frame)
 
-        # Separator between sections
-        content.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
+        page_a3 = self._stack.add_titled(self._a3_stack, "a3", "Token USB (A3)")
+        page_a3.set_icon_name("drive-removable-media-symbolic")
 
-        # ── A1 section: PFX file loading ──
+        # A1 page
         self.a1_view = A1CertificateView()
-        content.append(self.a1_view)
+        page_a1 = self._stack.add_titled(self.a1_view, "a1", "Certificado A1")
+        page_a1.set_icon_name("application-certificate-symbolic")
 
-        self.set_child(content)
+        # Switcher bar
+        switcher = Adw.ViewSwitcher()
+        switcher.set_stack(self._stack)
+        switcher.set_policy(Adw.ViewSwitcherPolicy.WIDE)
+        switcher.set_margin_top(4)
+        switcher.set_margin_bottom(4)
+        self.append(switcher)
+
+        self._stack.set_vexpand(True)
+        self.append(self._stack)
 
     def show_a3_certificates(self, certs: list) -> None:
         """Display loaded A3 certificates inline."""

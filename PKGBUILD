@@ -1,6 +1,6 @@
 # Maintainer: Leonardo Athayde <leoathayde@gmail.com>
 pkgname=big-certificados
-pkgver=1.0.0
+pkgver=1.1.0
 pkgrel=1
 pkgdesc="Gerenciador de certificados digitais para advogados brasileiros"
 arch=('any')

@@ -43,7 +43,7 @@ class UdevMonitor:
     def scan_existing(self) -> list[tuple[int, int, str]]:
         """Scan currently connected USB devices and return known tokens."""
         if pyudev is None:
-            log.warning("pyudev not installed, cannot scan devices")
+            log.debug("pyudev not installed, cannot scan devices")
             return []
 
         found: list[tuple[int, int, str]] = []
@@ -69,7 +69,7 @@ class UdevMonitor:
 
     def start(self) -> None:
         if pyudev is None:
-            log.warning("pyudev not installed, USB monitoring disabled")
+            log.debug("pyudev not installed, USB monitoring disabled")
             return
         if self._running:
             return

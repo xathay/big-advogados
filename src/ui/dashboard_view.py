@@ -13,12 +13,11 @@ from gi.repository import Gtk, Adw  # noqa: E402
 NavigateCallback = Callable[[str, str | None], None]
 
 
-class DashboardView(Gtk.ScrolledWindow):
+class DashboardView(Adw.Bin):
     """Home page with certificate status cards and quick actions."""
 
     def __init__(self, navigate_to: NavigateCallback) -> None:
         super().__init__()
-        self.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
 
         self._navigate = navigate_to
 
@@ -27,62 +26,27 @@ class DashboardView(Gtk.ScrolledWindow):
         self._a1_loaded: bool = False
         self._vidaas_connected: bool = False
 
-        # Layout
-        self._clamp = Adw.Clamp()
-        self._clamp.set_maximum_size(700)
-        self._clamp.set_tightening_threshold(500)
+        # Main StatusPage — no scroll, fills available space
+        self._status_page = Adw.StatusPage()
+        self._status_page.set_icon_name("channel-secure-symbolic")
+        self._status_page.set_title("BigCertificados")
+        self._status_page.set_description(
+            "Selecione uma opção na barra lateral para começar."
+        )
+        self.set_child(self._status_page)
 
-        self._box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
-        self._box.set_margin_top(24)
-        self._box.set_margin_bottom(24)
-        self._box.set_margin_start(16)
-        self._box.set_margin_end(16)
+        # Content box inside status page (for cards + actions)
+        self._content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
 
-        self._clamp.set_child(self._box)
-        self.set_child(self._clamp)
-
-        self._build_onboarding()
         self._build_status_cards()
         self._build_quick_actions()
+
+        self._status_page.set_child(self._content_box)
 
         # Start with onboarding visible
         self._refresh()
 
     # ── Build sections ──
-
-    def _build_onboarding(self) -> None:
-        """Onboarding status page shown when no certificates are loaded."""
-        self._onboarding = Adw.StatusPage()
-        self._onboarding.set_icon_name("channel-secure-symbolic")
-        self._onboarding.set_title("Bem-vindo ao BigCertificados")
-        self._onboarding.set_description(
-            "Comece conectando seu certificado digital."
-        )
-
-        btn_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        btn_box.set_halign(Gtk.Align.CENTER)
-
-        token_btn = Gtk.Button()
-        token_btn.set_child(self._icon_label("drive-removable-media-symbolic", "Conectar Token USB"))
-        token_btn.add_css_class("suggested-action")
-        token_btn.add_css_class("pill")
-        token_btn.connect("clicked", lambda _b: self._navigate("certificates", None))
-        btn_box.append(token_btn)
-
-        a1_btn = Gtk.Button()
-        a1_btn.set_child(self._icon_label("document-open-symbolic", "Importar Certificado A1"))
-        a1_btn.add_css_class("pill")
-        a1_btn.connect("clicked", lambda _b: self._navigate("certificates", None))
-        btn_box.append(a1_btn)
-
-        vidaas_btn = Gtk.Button()
-        vidaas_btn.set_child(self._icon_label("network-wireless-symbolic", "Configurar VidaaS Connect"))
-        vidaas_btn.add_css_class("pill")
-        vidaas_btn.connect("clicked", lambda _b: self._navigate("vidaas", None))
-        btn_box.append(vidaas_btn)
-
-        self._onboarding.set_child(btn_box)
-        self._box.append(self._onboarding)
 
     def _build_status_cards(self) -> None:
         """Certificate status cards group."""
@@ -122,7 +86,7 @@ class DashboardView(Gtk.ScrolledWindow):
         self._vidaas_card.add_suffix(arrow3)
         self._cards_group.add(self._vidaas_card)
 
-        self._box.append(self._cards_group)
+        self._content_box.append(self._cards_group)
 
     def _build_quick_actions(self) -> None:
         """Quick action buttons."""
@@ -156,7 +120,7 @@ class DashboardView(Gtk.ScrolledWindow):
         deps_row.add_suffix(Gtk.Image.new_from_icon_name("go-next-symbolic"))
         self._actions_group.add(deps_row)
 
-        self._box.append(self._actions_group)
+        self._content_box.append(self._actions_group)
 
     # ── Public API ──
 
@@ -193,17 +157,15 @@ class DashboardView(Gtk.ScrolledWindow):
     # ── Internal ──
 
     def _refresh(self) -> None:
-        """Toggle onboarding vs status cards based on state."""
+        """Toggle description vs status cards based on state."""
         has_anything = self._token_count > 0 or self._a1_loaded or self._vidaas_connected
-        self._onboarding.set_visible(not has_anything)
+
+        if has_anything:
+            self._status_page.set_description("")
+        else:
+            self._status_page.set_description(
+                "Selecione uma opção na barra lateral para começar."
+            )
+
         self._cards_group.set_visible(has_anything)
         self._actions_group.set_visible(True)
-
-    @staticmethod
-    def _icon_label(icon_name: str, text: str) -> Gtk.Box:
-        """Build an icon + label box for button content."""
-        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        box.set_halign(Gtk.Align.CENTER)
-        box.append(Gtk.Image.new_from_icon_name(icon_name))
-        box.append(Gtk.Label(label=text))
-        return box

@@ -20,7 +20,7 @@ from src.ui.password_settings import PasswordSettingsDialog
 log = logging.getLogger(__name__)
 
 APP_ID = "com.bigcertificados"
-CURRENT_VERSION = "1.0.0"
+CURRENT_VERSION = "1.1.0"
 
 
 class BigCertificadosApp(Adw.Application):
@@ -99,6 +99,11 @@ class BigCertificadosApp(Adw.Application):
 
     def do_startup(self) -> None:
         Adw.Application.do_startup(self)
+
+        # Use AdwStyleManager instead of deprecated GtkSettings dark theme
+        style_manager = Adw.StyleManager.get_default()
+        style_manager.set_color_scheme(Adw.ColorScheme.DEFAULT)
+
         self._setup_actions()
 
     def _setup_actions(self) -> None:
@@ -656,7 +661,7 @@ class BigCertificadosApp(Adw.Application):
         about = Adw.AboutDialog()
         about.set_application_name("BigCertificados")
         about.set_developer_name("BigLinux Team")
-        about.set_version("1.0.0")
+        about.set_version("1.1.0")
         about.set_comments(
             "Gerenciador completo de certificados digitais para "
             "advogados e profissionais do Direito no GNU/Linux.\n\n"
@@ -667,24 +672,32 @@ class BigCertificadosApp(Adw.Application):
             "• Assinatura digital de PDFs (wizard guiado ICP-Brasil)\n"
             "• Dashboard com status de certificados e ações rápidas\n"
             "• Configuração automática de navegadores (Firefox, Chrome, Brave)\n"
-            "• 39 sistemas judiciais organizados por estado\n"
+            "• 36 sistemas judiciais organizados por estado\n"
             "• 68 drivers de tokens catalogados\n"
-            "• Integração com PJe, e-SAJ, PROJUDI e PJeOffice Pro\n"
+            "• Integração com PJe, e-SAJ, eProc, PROJUDI e PJeOffice Pro\n"
             "• Detecção automática de tokens USB via udev"
         )
         about.set_website("https://github.com/xathay/big-advogados")
         about.set_application_icon("bigcertificados")
         about.set_license_type(Gtk.License.MIT_X11)
         about.set_release_notes(
-            "<p>Novidades na versão 1.0.0:</p>"
+            "<p>Novidades na versão 1.1.0:</p>"
             "<ul>"
-            "<li>Nova interface com sidebar categorizada (NavigationSplitView)</li>"
+            "<li>URLs de sistemas judiciais atualizados — 10 links quebrados corrigidos</li>"
+            "<li>Migração para eProc (TRF2, TRF4, TJRS)</li>"
+            "<li>Dashboard simplificado sem scroll desnecessário (Adw.StatusPage)</li>"
+            "<li>Certificados unificados com abas ViewStack (A3 + A1)</li>"
+            "<li>Correção de warnings do pyudev no terminal</li>"
+            "<li>AdwStyleManager — respeita tema do sistema por padrão</li>"
+            "</ul>"
+            "<p>Versão 1.0.0:</p>"
+            "<ul>"
+            "<li>Interface com sidebar categorizada (NavigationSplitView)</li>"
             "<li>Dashboard com visão geral dos certificados e ações rápidas</li>"
             "<li>Assinador de PDFs com wizard guiado de 4 passos</li>"
             "<li>Sistemas judiciais com sidebar colapsável (OverlaySplitView)</li>"
             "<li>VidaaS Connect — assinatura em nuvem via Valid Certificadora</li>"
             "<li>68 drivers de tokens catalogados com instalação automática</li>"
-            "<li>Dependências e navegadores como páginas na sidebar</li>"
             "</ul>"
         )
         about.set_developers([

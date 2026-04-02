@@ -15,11 +15,11 @@ Gerenciador completo de certificados digitais para advogados e profissionais do 
   <img src="https://img.shields.io/badge/Adwaita-1.0%2B-4A86CF?logo=gnome&logoColor=white" alt="Adwaita 1.0+">
   <img src="https://img.shields.io/badge/Platform-GNU%2FLinux-FCC624?logo=linux&logoColor=black" alt="Platform: GNU/Linux">
   <img src="https://img.shields.io/badge/Arch_Linux-1793D1?logo=arch-linux&logoColor=white" alt="Arch Linux">
-  <img src="https://img.shields.io/badge/Status-Em%20Desenvolvimento-orange?logo=git&logoColor=white" alt="Status: Em Desenvolvimento">
+  <img src="https://img.shields.io/badge/Status-v1.1.0-green?logo=git&logoColor=white" alt="Status: v1.1.0">
 </p>
 
-> ⚠️ **Este projeto está em fase de desenvolvimento e testes.**
-> Ainda não está pronto para uso em produção. Use por sua conta e risco.
+> ⚠️ **Este projeto está em fase de testes.**
+> Contribuições e relatos de bugs são bem-vindos.
 
 ---
 
@@ -50,6 +50,7 @@ Gerenciador completo de certificados digitais para advogados e profissionais do 
 - [Uso](#uso)
 - [Segurança](#segurança)
 - [Desinstalação](#desinstalação)
+- [Changelog](#changelog)
 - [Contribuindo](#contribuindo)
 - [Licença](#licença)
 - [Créditos](#créditos)
@@ -72,7 +73,7 @@ quem precisa acessar sistemas judiciais eletrônicos como PJe, PROJUDI e e-SAJ.
 | **Detecção de tokens USB** | Hotplug automático via udev — conecte o token e ele aparece |
 | **Certificados A1 e A3** | Visualização unificada de certificados PFX/P12 e tokens PKCS#11 |
 | **Assinador digital de PDF** | Assinatura ICP-Brasil com carimbo visual, em lote |
-| **39 sistemas judiciais** | Acesso com um clique, organizados por estado e tribunal |
+| **36 sistemas judiciais** | Acesso com um clique, organizados por estado e tribunal |
 | **68 drivers catalogados** | Gerenciador de drivers com instalação automática via AUR |
 | **6 navegadores suportados** | Firefox, Chrome, Chromium, Brave, Edge e Opera |
 | **Busca global** | Pesquisa em toda a aplicação com Ctrl+F |
@@ -176,23 +177,23 @@ A seção **Sistemas** utiliza `Adw.OverlaySplitView` com sidebar colapsável,
 organizando 4 seções: Sistemas Judiciais, PJeOffice Pro, Drivers & Tokens
 e Navegadores.
 
-O BigCertificados oferece acesso direto a **39 sistemas judiciais**, organizados
+O BigCertificados oferece acesso direto a **36 sistemas judiciais**, organizados
 por tribunal e estado, em **8 regiões**:
 
 | Região | Tribunais / Sistemas |
 |--------|---------------------|
-| **Tribunais Superiores** | PJe-STJ, Consulta STJ, PJe-TST, Portal PJe-CNJ |
-| **Bahia** | PJe-TJBA (1ª/2ª), PJe-TRF1 (1ª/2ª), PJe-TRT5, PROJUDI-TJBA, e-SAJ-TJBA |
+| **Tribunais Superiores** | Portal STJ, Consulta STJ, PJe-TST, Portal PJe-CNJ |
+| **Bahia** | PJe-TJBA (1ª/2ª), PJe-TRF1 (1ª/2ª), PJe-TRT5, PROJUDI-TJBA, Portal TJBA |
 | **São Paulo** | eSAJ-TJSP (1ª/2ª), Portal eSAJ-TJSP, PJe-TRT2 |
 | **Distrito Federal** | PJe-TJDFT (1ª/2ª), PJe-TRT10, Consulta TJDFT |
-| **Rio de Janeiro** | PJe-TJRJ (1ª/2ª), PJe-TRF2, PJe-TRT1, Consulta TJRJ |
-| **Minas Gerais** | PJe-TJMG (1ª/2ª), PJe-TRT3, PROJUDI-TJMG, Consulta TJMG |
-| **Rio Grande do Sul** | eThemis-TJRS (1ª/2ª), PJe-TRF4, PJe-TRT4, Consulta TJRS |
-| **Paraná** | PROJUDI-TJPR, PJe-TJPR (1ª/2ª), PJe-TRT9, Consulta TJPR |
+| **Rio de Janeiro** | PJe-TJRJ, eProc-TRF2, PJe-TRT1, Consulta TJRJ |
+| **Minas Gerais** | PJe-TJMG, PJe-TRT3, PROJUDI-TJMG, Consulta TJMG |
+| **Rio Grande do Sul** | eProc-TJRS (1ª/2ª), eProc-TRF4, PJe-TRT4, Consulta TJRS |
+| **Paraná** | PROJUDI-TJPR, PJe-TJPR, PJe-TRT9, Consulta TJPR |
 
 Cada sistema é aberto com um clique no navegador padrão. A interface utiliza
 `Adw.ActionRow` + `Adw.PreferencesGroup` com ícones descritivos para cada tipo
-de sistema (PJe, PROJUDI, eSAJ, Consulta).
+de sistema (PJe, eProc, PROJUDI, eSAJ, Consulta).
 
 ### Assinador Digital de PDF
 
@@ -305,7 +306,7 @@ O BigCertificados inclui um sistema de busca global acessível via
 - **Escopo completo** — pesquisa em:
   - Abas de navegação (Certificados, Sistemas, Assinador, VidaaS)
   - Ações do menu (Configurar Navegadores, Proteção por Senha, Sobre)
-  - Sistemas judiciais (39 sistemas com nome, tribunal e URL)
+  - Sistemas judiciais (36 sistemas com nome, tribunal e URL)
   - Drivers & Tokens (68 entries com nome e descrição)
   - Navegadores detectados (Firefox, Chrome, Brave, etc.)
   - PJeOffice Pro (instalar, atualizar, abrir)
@@ -467,7 +468,7 @@ Polônia, Rússia, China, Japão, Coreia, Índia, e muitos outros.
 
 | Sistema | URL | Descrição |
 |---------|-----|-----------|
-| PJe — STJ | `pje.stj.jus.br` | Superior Tribunal de Justiça |
+| Portal — STJ | `www.stj.jus.br` | Superior Tribunal de Justiça |
 | Consulta Processual — STJ | `processo.stj.jus.br` | Pesquisa de processos |
 | PJe — TST | `pje.tst.jus.br` | Tribunal Superior do Trabalho |
 | Portal PJe — CNJ | `cnj.jus.br` | Conselho Nacional de Justiça |
@@ -481,7 +482,7 @@ Polônia, Rússia, China, Japão, Coreia, Índia, e muitos outros.
 | PJe — TRF1 (1ª e 2ª) | Tribunal Regional Federal da 1ª Região |
 | PJe — TRT5 | Tribunal Regional do Trabalho 5ª Região |
 | PROJUDI — TJBA | Processo Judicial Digital (sistema legado) |
-| e-SAJ — TJBA | Sistema de Automação da Justiça |
+| Portal — TJBA | Portal do Tribunal de Justiça da Bahia |
 
 ### São Paulo
 
@@ -504,8 +505,8 @@ Polônia, Rússia, China, Japão, Coreia, Índia, e muitos outros.
 
 | Sistema | Descrição |
 |---------|-----------|
-| PJe — TJRJ (1ª e 2ª) | Tribunal de Justiça do RJ |
-| PJe — TRF2 | Tribunal Regional Federal da 2ª Região |
+| PJe — TJRJ | Tribunal de Justiça do RJ |
+| eProc — TRF2 | Tribunal Regional Federal da 2ª Região |
 | PJe — TRT1 | Tribunal Regional do Trabalho 1ª Região |
 | Consulta Processual — TJRJ | Consulta de processos |
 
@@ -513,7 +514,7 @@ Polônia, Rússia, China, Japão, Coreia, Índia, e muitos outros.
 
 | Sistema | Descrição |
 |---------|-----------|
-| PJe — TJMG (1ª e 2ª) | Tribunal de Justiça de Minas Gerais |
+| PJe — TJMG | Tribunal de Justiça de Minas Gerais |
 | PJe — TRT3 | Tribunal Regional do Trabalho 3ª Região |
 | PROJUDI — TJMG | Juizados Especiais |
 | Consulta Processual — TJMG | Consulta de processos |
@@ -522,8 +523,8 @@ Polônia, Rússia, China, Japão, Coreia, Índia, e muitos outros.
 
 | Sistema | Descrição |
 |---------|-----------|
-| eThemis — TJRS (1ª e 2ª) | Sistema eThemis — TJRS |
-| PJe — TRF4 | Tribunal Regional Federal da 4ª Região |
+| eProc — TJRS (1ª e 2ª) | Processo eletrônico — TJRS |
+| eProc — TRF4 | Tribunal Regional Federal da 4ª Região |
 | PJe — TRT4 | Tribunal Regional do Trabalho 4ª Região |
 | Consulta Processual — TJRS | Consulta de processos |
 
@@ -532,7 +533,7 @@ Polônia, Rússia, China, Japão, Coreia, Índia, e muitos outros.
 | Sistema | Descrição |
 |---------|-----------|
 | PROJUDI — TJPR | Processo Judicial Digital |
-| PJe — TJPR (1ª e 2ª) | Tribunal de Justiça do Paraná |
+| PJe — TJPR | Tribunal de Justiça do Paraná |
 | PJe — TRT9 | Tribunal Regional do Trabalho 9ª Região |
 | Consulta Processual — TJPR | Jurisprudência e processos |
 
@@ -602,7 +603,11 @@ big-advogados/
 │   └── pjeoffice-uninstall-helper.sh  # Desinstalador com pkexec
 │
 ├── docs/
-│   └── manual-usuario.md              # Manual do usuário
+│   ├── manual-usuario.md              # Manual do usuário
+│   ├── plano-ux-ui-design.md          # Plano de redesign UX/UI (6 fases)
+│   ├── plano-vidaas-connect.md         # Plano de integração VidaaS Connect
+│   ├── plano-outros-tokens.md          # Plano para suporte a mais tokens
+│   └── screenshots/                    # Screenshots da aplicação
 │
 ├── PKGBUILD                            # Pacote Arch Linux (makepkg -si)
 └── requirements.txt                    # Dependências Python (pip)
@@ -845,6 +850,46 @@ python -m src.main
 - **Lógica** → `src/certificate/` + `src/browser/` — sem dependência de GTK
 - **Utils** → `src/utils/` — XDG, udev, locks, updater
 - **Scripts** → `scripts/` — helpers bash para PJeOffice
+
+---
+
+## Changelog
+
+### v1.1.0 (2025-06-19)
+
+**URLs de sistemas judiciais atualizados:**
+- STJ PJe → Portal STJ (`www.stj.jus.br`) — domínio antigo descontinuado
+- eSAJ TJBA → Portal TJBA (`www.tjba.jus.br`) — SSL handshake failure
+- TJRJ PJe 1g+2g → PJe unificado (`tjrj.pje.jus.br`) — domínios antigos sem DNS
+- TRF2 PJe → eProc (`eproc.trf2.jus.br`) — migração para eProc
+- TJMG PJe 2g → removido (1g+2g unificados em `pje.tjmg.jus.br`)
+- TJRS eThemis 1g+2g → eProc TJRS (`eproc1g.tjrs.jus.br` / `eproc2g.tjrs.jus.br`)
+- TRF4 PJe → eProc (`eproc.trf4.jus.br`) — migração para eProc
+- TJPR PJe 2g → removido (unificado em `pje.tjpr.jus.br`)
+
+**Melhorias de interface:**
+- Dashboard redesenhado com `Adw.StatusPage` — sem scroll desnecessário
+- Certificados unificados com abas `Adw.ViewStack` + `Adw.ViewSwitcher` (A3 + A1)
+- `AdwStyleManager` — respeita tema do sistema por padrão
+
+**Correções:**
+- Warnings do pyudev silenciados (rebaixados para debug level)
+- Layout de certificados sem ScrolledWindows aninhados
+
+### v1.0.0 (2025-06-18)
+
+**Lançamento inicial:**
+- Interface GTK4/Adwaita com sidebar categorizada (`Adw.NavigationSplitView`)
+- Dashboard com status de certificados e ações rápidas
+- Assinador de PDFs com wizard guiado de 4 passos
+- Sistemas judiciais com sidebar colapsável (`Adw.OverlaySplitView`)
+- VidaaS Connect — assinatura em nuvem via Valid Certificadora
+- 68 drivers de tokens catalogados com instalação automática
+- Proteção por senha com PBKDF2-HMAC-SHA256 (600K iterações)
+- Detecção automática de tokens USB via udev
+- Integração com 6 navegadores (Firefox, Chrome, Chromium, Brave, Edge, Opera)
+- PJeOffice Pro — instalação, atualização e HiDPI automático
+- Busca global com Ctrl+F
 
 ---
 

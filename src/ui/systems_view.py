@@ -29,9 +29,9 @@ JUDICIAL_STATES = [
         "icon": "starred-symbolic",
         "systems": [
             {
-                "name": "PJe — STJ",
-                "url": "https://pje.stj.jus.br/pje/login.seam",
-                "description": "Processo Judicial Eletrônico — Superior Tribunal de Justiça",
+                "name": "Portal — STJ",
+                "url": "https://www.stj.jus.br",
+                "description": "Portal do Superior Tribunal de Justiça",
                 "icon": "document-edit-symbolic",
             },
             {
@@ -96,9 +96,9 @@ JUDICIAL_STATES = [
                 "icon": "document-properties-symbolic",
             },
             {
-                "name": "e-SAJ — TJBA",
-                "url": "https://esaj.tjba.jus.br",
-                "description": "Sistema de Automação da Justiça — Consulta",
+                "name": "Portal — TJBA",
+                "url": "https://www.tjba.jus.br",
+                "description": "Portal do Tribunal de Justiça da Bahia",
                 "icon": "system-search-symbolic",
             },
         ],
@@ -171,21 +171,15 @@ JUDICIAL_STATES = [
         "icon": "mark-location-symbolic",
         "systems": [
             {
-                "name": "PJe — TJRJ 1ª Instância",
-                "url": "https://pje.tjrj.jus.br",
-                "description": "PJe — Tribunal de Justiça do Rio de Janeiro",
+                "name": "PJe — TJRJ",
+                "url": "https://tjrj.pje.jus.br/pje/login.seam",
+                "description": "Processo Judicial Eletrônico — Tribunal de Justiça do Rio de Janeiro",
                 "icon": "document-edit-symbolic",
             },
             {
-                "name": "PJe — TJRJ 2ª Instância",
-                "url": "https://pje2g.tjrj.jus.br",
-                "description": "PJe 2º Grau — TJRJ",
-                "icon": "document-edit-symbolic",
-            },
-            {
-                "name": "PJe — TRF2",
-                "url": "https://pje.trf2.jus.br",
-                "description": "PJe — Tribunal Regional Federal da 2ª Região",
+                "name": "eProc — TRF2",
+                "url": "https://eproc.trf2.jus.br",
+                "description": "eProc — Tribunal Regional Federal da 2ª Região",
                 "icon": "document-edit-symbolic",
             },
             {
@@ -208,17 +202,12 @@ JUDICIAL_STATES = [
         "icon": "mark-location-symbolic",
         "systems": [
             {
-                "name": "PJe — TJMG 1ª Instância",
+                "name": "PJe — TJMG",
                 "url": "https://pje.tjmg.jus.br",
                 "description": "PJe — Tribunal de Justiça de Minas Gerais",
                 "icon": "document-edit-symbolic",
             },
-            {
-                "name": "PJe — TJMG 2ª Instância",
-                "url": "https://pje2g.tjmg.jus.br",
-                "description": "PJe 2º Grau — TJMG",
-                "icon": "document-edit-symbolic",
-            },
+
             {
                 "name": "PJe — TRT3 (Minas Gerais)",
                 "url": "https://pje.trt3.jus.br",
@@ -245,21 +234,21 @@ JUDICIAL_STATES = [
         "icon": "mark-location-symbolic",
         "systems": [
             {
-                "name": "eThemis — TJRS 1ª Instância",
-                "url": "https://www.tjrs.jus.br/novo/servicos/e-themis-1o-grau/",
-                "description": "Sistema eThemis — TJRS 1º Grau",
+                "name": "eProc — TJRS 1ª Instância",
+                "url": "https://eproc1g.tjrs.jus.br",
+                "description": "eProc 1º Grau — TJRS",
                 "icon": "document-edit-symbolic",
             },
             {
-                "name": "eThemis — TJRS 2ª Instância",
-                "url": "https://www.tjrs.jus.br/novo/servicos/e-themis-2o-grau/",
-                "description": "Sistema eThemis — TJRS 2º Grau",
+                "name": "eProc — TJRS 2ª Instância",
+                "url": "https://eproc2g.tjrs.jus.br",
+                "description": "eProc 2º Grau — TJRS",
                 "icon": "document-edit-symbolic",
             },
             {
-                "name": "PJe — TRF4",
-                "url": "https://pje.trf4.jus.br",
-                "description": "PJe — Tribunal Regional Federal da 4ª Região",
+                "name": "eProc — TRF4",
+                "url": "https://eproc.trf4.jus.br",
+                "description": "eProc — Tribunal Regional Federal da 4ª Região",
                 "icon": "document-edit-symbolic",
             },
             {
@@ -288,17 +277,12 @@ JUDICIAL_STATES = [
                 "icon": "document-properties-symbolic",
             },
             {
-                "name": "PJe — TJPR 1ª Instância",
+                "name": "PJe — TJPR",
                 "url": "https://pje.tjpr.jus.br",
                 "description": "PJe — Tribunal de Justiça do Paraná",
                 "icon": "document-edit-symbolic",
             },
-            {
-                "name": "PJe — TJPR 2ª Instância",
-                "url": "https://pje2g.tjpr.jus.br",
-                "description": "PJe 2º Grau — TJPR",
-                "icon": "document-edit-symbolic",
-            },
+
             {
                 "name": "PJe — TRT9 (Paraná)",
                 "url": "https://pje.trt9.jus.br",
