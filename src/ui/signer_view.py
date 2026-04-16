@@ -852,25 +852,13 @@ class SignerView(Gtk.ScrolledWindow):
         if self._a3_manager is None or not self._a3_cert_info:
             return None
         try:
-            if self._a3_manager._session is None:
-                return None
-            import PyKCS11
-            session = self._a3_manager._session
-            objects = session.findObjects([
-                (PyKCS11.CKA_CLASS, PyKCS11.CKO_CERTIFICATE),
-            ])
-            for obj in objects:
-                attrs = session.getAttributeValue(obj, [PyKCS11.CKA_VALUE])
-                der_bytes = bytes(attrs[0])
-                from cryptography import x509
-                cert = x509.load_der_x509_certificate(der_bytes)
-                from src.certificate.parser import parse_certificate
-                info = parse_certificate(cert)
-                if info.common_name == self._a3_cert_info.common_name:
-                    return der_bytes
+            der_bytes = self._a3_manager.get_certificate_der()
+            if der_bytes:
+                return der_bytes
+            return None
         except Exception as exc:
-            log.error("Failed to get A3 certificate DER: %s", exc)
-        return None
+            log.error("Failed to get A3 cert DER: %s", exc)
+            return None
 
     # ── State transitions ────────────────────────────────────────
 

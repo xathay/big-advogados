@@ -76,15 +76,24 @@ class VidaaSAPIClient:
 
     def __init__(self, credentials: VidaaSCredentials) -> None:
         self._credentials = credentials
-        self._access_token: str | None = None
+        self._access_token: bytearray | None = None
         self._token_expiry: float = 0.0
 
     @property
     def is_authenticated(self) -> bool:
         return (
             self._access_token is not None
+            and len(self._access_token) > 0
             and time.time() < self._token_expiry
         )
+
+    def clear_credentials(self) -> None:
+        """Wipe sensitive credential data from memory."""
+        if self._access_token is not None:
+            for i in range(len(self._access_token)):
+                self._access_token[i] = 0
+            self._access_token = None
+        self._token_expiry = 0.0
 
     def authenticate(self) -> bool:
         """Authenticate with VidaaS API using OAuth2 client_credentials."""
@@ -98,7 +107,8 @@ class VidaaSAPIClient:
 
         try:
             data = self._post(_AUTH_URL, payload, authenticated=False)
-            self._access_token = data.get("access_token")
+            token_str = data.get("access_token", "")
+            self._access_token = bytearray(token_str.encode("utf-8")) if token_str else None
             expires_in = data.get("expires_in", 3600)
             self._token_expiry = time.time() + expires_in - 60  # margin
             log.info("VidaaS API authenticated successfully")
@@ -257,7 +267,7 @@ class VidaaSAPIClient:
 
     def _add_auth_header(self, req: urllib.request.Request) -> None:
         if self._access_token:
-            req.add_header("Authorization", f"Bearer {self._access_token}")
+            req.add_header("Authorization", f"Bearer {self._access_token.decode('utf-8')}")
 
     def _execute(self, req: urllib.request.Request) -> dict:
         """Execute an HTTP request and return parsed JSON."""

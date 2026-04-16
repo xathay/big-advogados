@@ -165,7 +165,8 @@ def show_pfx_password_dialog(
     filename = os.path.basename(pfx_path)
     file_label = Gtk.Label(label=f"Arquivo: {filename}")
     file_label.add_css_class("dim-label")
-    file_label.set_ellipsize(3)  # Pango.EllipsizeMode.END
+    from gi.repository import Pango
+    file_label.set_ellipsize(Pango.EllipsizeMode.END)
     box.append(file_label)
 
     pwd_entry = Gtk.PasswordEntry()

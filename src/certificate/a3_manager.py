@@ -175,6 +175,33 @@ class A3Manager:
             self._session = None
 
     @property
+    def has_active_session(self) -> bool:
+        """Check if there is an active PKCS#11 session."""
+        return self._session is not None
+
+    def get_session(self) -> object:
+        """Get the active PKCS#11 session (for HSM adapters)."""
+        if self._session is None:
+            raise RuntimeError("No active PKCS#11 session")
+        return self._session
+
+    def get_certificate_der(self) -> Optional[bytes]:
+        """Get DER-encoded certificate from the active token session."""
+        if self._session is None:
+            return None
+        with self._lock:
+            try:
+                objects = self._session.findObjects([
+                    (CKA_CLASS, CKO_CERTIFICATE),
+                ])
+                if objects:
+                    attrs = self._session.getAttributeValue(objects[0], [CKA_VALUE])
+                    return bytes(attrs[0])
+            except Exception as exc:
+                log.error("Failed to get certificate DER: %s", exc)
+        return None
+
+    @property
     def current_module(self) -> Optional[str]:
         return self._current_module
 
