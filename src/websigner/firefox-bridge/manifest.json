@@ -1,0 +1,19 @@
+{
+  "manifest_version": 2,
+  "name": "BigCertificados WebPKI Bridge",
+  "description": "Ponte entre a biblioteca Lacuna Web PKI e a extensão Web Signer para sistemas judiciais",
+  "version": "1.0.0",
+  "content_scripts": [
+    {
+      "matches": ["https://*.jus.br/*", "https://*.tjsp.jus.br/*", "https://*.tjba.jus.br/*", "https://*.trf1.jus.br/*", "https://*.trf2.jus.br/*", "https://*.trf3.jus.br/*", "https://*.trf4.jus.br/*", "https://*.trf5.jus.br/*"],
+      "js": ["bridge.js"],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ],
+  "applications": {
+    "gecko": {
+      "id": "webpki-bridge@bigcertificados"
+    }
+  }
+}
