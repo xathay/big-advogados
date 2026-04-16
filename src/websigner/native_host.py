@@ -553,13 +553,25 @@ def handle_command(message: dict) -> None:
                 log.error("signData: failed")
                 reply_error(request_id, "Signing failed or was cancelled", "sign_error")
 
-        elif command == "authorizeSignatures":
-            # Extension pre-authorization — just acknowledge
-            reply_success(request_id, True)
-
-        elif command == "preauthorizeSignatures":
-            # Pre-authorization for batch — just acknowledge
-            reply_success(request_id, True)
+        elif command in ("authorizeSignatures", "preauthorizeSignatures"):
+            # Extension asks native host to show authorization dialog.
+            # We auto-approve and return the certificate info so the
+            # extension can proceed to signData/signHash.
+            cert_thumb = request.get("certificateThumbprint", "")
+            cert_data = None
+            for c in list_certificates_from_nss():
+                if c["thumbprint"] == cert_thumb:
+                    cert_data = c
+                    break
+            reply_success(request_id, {
+                "authorized": True,
+                "dontAskAgain": True,
+                "certificate": {
+                    "thumbprint": cert_thumb,
+                    "subjectName": cert_data["subjectName"] if cert_data else "",
+                    "issuerName": cert_data["issuerName"] if cert_data else "",
+                },
+            })
 
         elif command == "signHashBatch":
             cert_thumb = request.get("certificateThumbprint", "")
