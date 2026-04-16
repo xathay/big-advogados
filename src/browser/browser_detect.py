@@ -18,39 +18,47 @@ class BrowserProfile:
 
 
 def find_firefox_profiles() -> list[BrowserProfile]:
-    """Find all Firefox profiles with NSS databases."""
+    """Find all Firefox profiles with NSS databases.
+
+    Checks both traditional (~/.mozilla/firefox) and XDG
+    (~/.config/mozilla/firefox) profile locations.
+    """
     profiles: list[BrowserProfile] = []
-    mozilla_dir = Path.home() / ".mozilla" / "firefox"
 
-    if not mozilla_dir.is_dir():
-        return profiles
+    # Check both traditional and XDG paths
+    for mozilla_dir in [
+        Path.home() / ".mozilla" / "firefox",
+        Path.home() / ".config" / "mozilla" / "firefox",
+    ]:
+        if not mozilla_dir.is_dir():
+            continue
 
-    # Parse profiles.ini
-    ini_path = mozilla_dir / "profiles.ini"
-    if ini_path.is_file():
-        current_section: dict[str, str] = {}
-        for line in ini_path.read_text(encoding="utf-8", errors="replace").splitlines():
-            line = line.strip()
-            if line.startswith("[Profile"):
-                if current_section:
-                    _add_firefox_profile(mozilla_dir, current_section, profiles)
-                current_section = {}
-            elif "=" in line:
-                key, _, val = line.partition("=")
-                current_section[key.strip()] = val.strip()
-        if current_section:
-            _add_firefox_profile(mozilla_dir, current_section, profiles)
+        # Parse profiles.ini
+        ini_path = mozilla_dir / "profiles.ini"
+        if ini_path.is_file():
+            current_section: dict[str, str] = {}
+            for line in ini_path.read_text(encoding="utf-8", errors="replace").splitlines():
+                line = line.strip()
+                if line.startswith("[Profile"):
+                    if current_section:
+                        _add_firefox_profile(mozilla_dir, current_section, profiles)
+                    current_section = {}
+                elif "=" in line:
+                    key, _, val = line.partition("=")
+                    current_section[key.strip()] = val.strip()
+            if current_section:
+                _add_firefox_profile(mozilla_dir, current_section, profiles)
 
-    # Fallback: scan for *.default* directories
-    if not profiles:
-        for d in mozilla_dir.iterdir():
-            if d.is_dir() and (d / "cert9.db").exists():
-                profiles.append(BrowserProfile(
-                    browser="Firefox",
-                    name=d.name,
-                    path=d,
-                    nss_db_path=d,
-                ))
+        # Fallback: scan for directories with cert9.db
+        if not profiles:
+            for d in mozilla_dir.iterdir():
+                if d.is_dir() and (d / "cert9.db").exists():
+                    profiles.append(BrowserProfile(
+                        browser="Firefox",
+                        name=d.name,
+                        path=d,
+                        nss_db_path=d,
+                    ))
 
     return profiles
 

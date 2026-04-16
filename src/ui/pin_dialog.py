@@ -17,7 +17,7 @@ class PinDialog(Adw.Dialog):
         self.set_content_width(360)
         self.set_content_height(200)
 
-        self._pin: str = ""
+        self._pin: bytearray = bytearray()
         self._confirmed = False
 
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
@@ -62,14 +62,22 @@ class PinDialog(Adw.Dialog):
 
     @property
     def pin(self) -> str:
-        return self._pin
+        """Return PIN as string for PKCS#11 login. Caller should wipe after use."""
+        return self._pin.decode("utf-8") if self._pin else ""
 
     @property
     def confirmed(self) -> bool:
         return self._confirmed
 
+    def wipe_pin(self) -> None:
+        """Overwrite PIN bytes in memory."""
+        for i in range(len(self._pin)):
+            self._pin[i] = 0
+        self._pin = bytearray()
+
     def _on_confirm(self, *_args: object) -> None:
-        self._pin = self._pin_entry.get_text()
+        text = self._pin_entry.get_text()
+        self._pin = bytearray(text.encode("utf-8"))
         self._confirmed = True
         self.close()
 

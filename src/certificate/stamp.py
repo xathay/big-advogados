@@ -89,10 +89,12 @@ def generate_stamp_image(
                    fill=COLOR_BODY_TEXT, font=font_bold)
         y += LINE_HEIGHT
 
-    # CPF and OAB on the same line
+    # CPF and OAB on the same line (CPF masked per LGPD)
     id_parts = []
     if cert_info.cpf:
-        id_parts.append(f"CPF: {cert_info.cpf}")
+        cpf = cert_info.cpf
+        masked = f"***.{cpf[4:7]}.{cpf[8:11]}-**" if len(cpf) >= 14 else cpf
+        id_parts.append(f"CPF: {masked}")
     if cert_info.oab:
         id_parts.append(f"OAB: {cert_info.oab}")
     if id_parts:

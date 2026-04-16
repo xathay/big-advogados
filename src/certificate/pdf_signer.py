@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Optional, TYPE_CHECKING
 
 from cryptography import x509
+from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.serialization import pkcs12
 
 from src.certificate.parser import CertificateInfo, parse_certificate
@@ -254,7 +255,7 @@ def sign_pdf_a3(
     if not pdf_file.is_file():
         return SignatureResult(pdf_path, output_path, False, "Arquivo PDF não encontrado")
 
-    if a3_manager._session is None:
+    if not a3_manager.has_active_session:
         return SignatureResult(
             pdf_path, output_path, False,
             "Sessão com o token não está ativa — reinsira o token",
@@ -312,6 +313,7 @@ def sign_pdf_a3(
             "aligned": 0,
         }
 
+        tmp_stamp_path: str | None = None
         if options.visible:
             from src.certificate.stamp import generate_stamp_image
             import tempfile
@@ -322,36 +324,38 @@ def sign_pdf_a3(
             tmp_stamp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
             stamp_img.save(tmp_stamp.name, format="PNG")
             tmp_stamp.close()
+            tmp_stamp_path = tmp_stamp.name
             udct["signaturebox"] = sig_box
-            udct["signature_img"] = tmp_stamp.name
+            udct["signature_img"] = tmp_stamp_path
             udct["signature_img_distort"] = False
             udct["signature_img_centred"] = True
 
-        # Create PKCS#11 HSM adapter for endesive
-        hsm = _PKCS11HSM(a3_manager._session, cert_der)
+        try:
+            # Create PKCS#11 HSM adapter for endesive
+            session = a3_manager.get_session()
+            hsm = _PKCS11HSM(session, cert_der)
 
-        from endesive.pdf import cms as pdf_cms
+            from endesive.pdf import cms as pdf_cms
 
-        signed_data = pdf_cms.sign(
-            pdf_bytes, udct,
-            None, None, [],
-            algomd="sha256",
-            hsm=hsm,
-        )
+            signed_data = pdf_cms.sign(
+                pdf_bytes, udct,
+                None, None, [],
+                algomd="sha256",
+                hsm=hsm,
+            )
 
-        out = Path(output_path)
-        out.parent.mkdir(parents=True, exist_ok=True)
-        with open(out, "wb") as f:
-            f.write(pdf_bytes)
-            f.write(signed_data)
-
-        # Clean up temp stamp file
-        if options.visible:
-            try:
-                import os
-                os.unlink(tmp_stamp.name)
-            except OSError:
-                pass
+            out = Path(output_path)
+            out.parent.mkdir(parents=True, exist_ok=True)
+            with open(out, "wb") as f:
+                f.write(pdf_bytes)
+                f.write(signed_data)
+        finally:
+            if tmp_stamp_path:
+                try:
+                    import os
+                    os.unlink(tmp_stamp_path)
+                except OSError:
+                    pass
 
         log.info("PDF signed (A3): %s -> %s", pdf_path, output_path)
         return SignatureResult(pdf_path, output_path, True, cert_info=cert_info)
@@ -402,29 +406,6 @@ def batch_sign(
             progress_callback(i + 1, total)
 
     return results
-
-
-def _build_signature_text(info: CertificateInfo, now: datetime) -> str:
-    """Build the visible signature stamp text."""
-    lines = []
-    lines.append("ASSINADO DIGITALMENTE")
-
-    holder = info.holder_name or info.common_name
-    if holder:
-        lines.append(f"Por: {holder}")
-
-    if info.cpf:
-        lines.append(f"CPF: {info.cpf}")
-
-    if info.oab:
-        lines.append(f"OAB: {info.oab}")
-
-    if info.issuer_cn:
-        lines.append(f"AC: {info.issuer_cn}")
-
-    lines.append(f"Data: {now.strftime('%d/%m/%Y %H:%M:%S UTC')}")
-
-    return "\n".join(lines)
 
 
 def _count_pdf_pages(pdf_bytes: bytes) -> int:
@@ -601,6 +582,7 @@ def _sign_pdf_vidaas_api(
             "aligned": 0,
         }
 
+        tmp_stamp_path: str | None = None
         if options.visible:
             from src.certificate.stamp import generate_stamp_image
             import tempfile
@@ -611,45 +593,44 @@ def _sign_pdf_vidaas_api(
             tmp_stamp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
             stamp_img.save(tmp_stamp.name, format="PNG")
             tmp_stamp.close()
+            tmp_stamp_path = tmp_stamp.name
             udct["signaturebox"] = sig_box
-            udct["signature_img"] = tmp_stamp.name
+            udct["signature_img"] = tmp_stamp_path
             udct["signature_img_distort"] = False
             udct["signature_img_centred"] = True
 
-        # Build remote HSM adapter
-        from cryptography.x509 import load_der_x509_certificate
-        cert_der = cert_info.certificate.public_bytes(
-            serialization.Encoding.DER,
-        ) if hasattr(cert_info, "certificate") else b""
+        try:
+            # Build remote HSM adapter
+            cert_der = vidaas_manager.get_cert_der() or b""
 
-        hsm = _VidaaSRemoteHSM(
-            api_client,
-            cert_id=cert_info.serial_number or "",
-            cert_der=cert_der,
-            on_status=on_status,
-        )
+            hsm = _VidaaSRemoteHSM(
+                api_client,
+                cert_id=cert_info.serial_number or "",
+                cert_der=cert_der,
+                on_status=on_status,
+            )
 
-        from endesive.pdf import cms as pdf_cms
+            from endesive.pdf import cms as pdf_cms
 
-        signed_data = pdf_cms.sign(
-            pdf_bytes, udct,
-            None, None, [],
-            algomd="sha256",
-            hsm=hsm,
-        )
+            signed_data = pdf_cms.sign(
+                pdf_bytes, udct,
+                None, None, [],
+                algomd="sha256",
+                hsm=hsm,
+            )
 
-        out = Path(output_path)
-        out.parent.mkdir(parents=True, exist_ok=True)
-        with open(out, "wb") as f:
-            f.write(pdf_bytes)
-            f.write(signed_data)
-
-        if options.visible:
-            try:
-                import os
-                os.unlink(tmp_stamp.name)
-            except OSError:
-                pass
+            out = Path(output_path)
+            out.parent.mkdir(parents=True, exist_ok=True)
+            with open(out, "wb") as f:
+                f.write(pdf_bytes)
+                f.write(signed_data)
+        finally:
+            if tmp_stamp_path:
+                try:
+                    import os
+                    os.unlink(tmp_stamp_path)
+                except OSError:
+                    pass
 
         log.info("PDF signed (VidaaS API): %s -> %s", pdf_path, output_path)
         return SignatureResult(pdf_path, output_path, True, cert_info=cert_info)

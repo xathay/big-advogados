@@ -66,17 +66,26 @@ class A1Manager:
     ) -> bool:
         """Install PFX certificate in an NSS database for browser use.
 
-        Uses pk12util from nss-tools.
+        Uses pk12util from nss-tools. Password is passed via temp file
+        (-w flag) to avoid exposure in process listings.
         """
         import subprocess
+        import tempfile
 
+        pw_file = None
         try:
+            pw_file = tempfile.NamedTemporaryFile(
+                mode="w", suffix=".pw", delete=False,
+            )
+            pw_file.write(password)
+            pw_file.close()
+
             result = subprocess.run(
                 [
                     "pk12util",
                     "-i", pfx_path,
                     "-d", f"sql:{nss_db_path}",
-                    "-W", password,
+                    "-w", pw_file.name,
                 ],
                 capture_output=True, text=True, timeout=15,
             )
@@ -92,6 +101,13 @@ class A1Manager:
         except Exception as exc:
             log.error("Failed to install certificate: %s", exc)
             return False
+        finally:
+            if pw_file:
+                try:
+                    import os
+                    os.unlink(pw_file.name)
+                except OSError:
+                    pass
 
     def install_in_all_browsers(self, pfx_path: str, password: str) -> dict[str, bool]:
         """Install PFX in all detected browser NSS databases."""
