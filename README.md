@@ -78,6 +78,7 @@ quem precisa acessar sistemas judiciais eletrônicos como PJe, PROJUDI e e-SAJ.
 | **6 navegadores suportados** | Firefox, Chrome, Chromium, Brave, Edge e Opera |
 | **Busca global** | Pesquisa em toda a aplicação com Ctrl+F |
 | **PJeOffice Pro** | Instalador, atualizador e desinstalador integrados |
+| **WebSigner** | Assinatura digital no navegador para e-SAJ, PJe e outros sistemas judiciais |
 | **VidaaS Connect** | Assinatura em nuvem via Valid Certificadora |
 | **Proteção por senha** | PBKDF2-HMAC-SHA256 com 600.000 iterações |
 
@@ -146,7 +147,7 @@ Chromium e o Firefox, incluindo todos os seus perfis:
 
 | Navegador | Detecção | Configuração NSS | Brave Shields |
 |-----------|----------|-------------------|---------------|
-| **Firefox** | ✅ Perfis `~/.mozilla/firefox/` | ✅ certutil | — |
+| **Firefox** | ✅ Perfis `~/.mozilla/firefox/` e `~/.config/mozilla/firefox/` | ✅ certutil | — |
 | **Chrome** | ✅ Perfis `~/.config/google-chrome/` | ✅ certutil | — |
 | **Chromium** | ✅ Perfis `~/.config/chromium/` | ✅ certutil | — |
 | **Brave** | ✅ Perfis `~/.config/BraveSoftware/` | ✅ certutil | ✅ Auto-config |
@@ -330,6 +331,44 @@ O BigCertificados inclui um sistema de busca global acessível via
 ---
 
 ## Soluções Exclusivas
+
+### WebSigner — Assinatura Digital no Navegador
+
+> 🆕 **Solução inédita para assinatura digital em sistemas judiciais no Linux.**
+> O e-SAJ (TJSP, TJBA e outros) e diversos sistemas judiciais exigem o
+> **Web Signer** (Softplan/Lacuna) para assinar documentos no navegador. O
+> componente nativo oficial (binário proprietário) **não funciona no Linux**
+> — o binário da Softplan v2.12.1 (2022) é incompatível com a extensão atual.
+
+O BigCertificados resolve isso com um **native messaging host** em Python que
+substitui o binário da Softplan, implementando o protocolo completo da extensão
+Web Signer:
+
+| Comando | Descrição |
+|---------|-----------|
+| `getInfo` | Identifica o sistema operacional e versão |
+| `listCertificates` | Lista certificados A1/A3 do banco NSS do Firefox |
+| `readCertificate` | Lê o conteúdo DER completo de um certificado |
+| `authorizeSignatures` | Autoriza assinaturas para um domínio |
+| `signHash` / `signData` | Assina dados com a chave privada do certificado |
+
+**Como funciona:**
+
+1. A extensão Web Signer detecta o BigCertificados como native messaging host
+2. O e-SAJ lista os certificados disponíveis no dropdown
+3. Ao assinar, o BigCertificados pede a senha do PFX via dialog
+4. A assinatura é feita localmente com a biblioteca `cryptography`
+5. O resultado é enviado de volta ao e-SAJ para validação
+
+**Instalação (automática):**
+
+```python
+from src.websigner.installer import install_native_host
+install_native_host()  # Instala manifests para Firefox, Chrome e Brave
+```
+
+**Sistemas compatíveis:** e-SAJ (todos os TJs), PJe, eProc, PROJUDI e qualquer
+sistema que use a extensão Web Signer / Lacuna Web PKI.
 
 ### PJeOffice Pro — Escala HiDPI Automática
 
@@ -567,7 +606,15 @@ big-advogados/
 │   │   ├── pin_dialog.py              # Diálogo de PIN para tokens A3
 │   │   ├── lock_screen.py             # Tela de bloqueio por senha
 │   │   ├── password_settings.py       # Configuração de senha do app
+│   │   ├── deps_dialog.py             # Diálogo de verificação de dependências
 │   │   └── pjeoffice_installer.py     # Instalador do PJeOffice Pro
+│   │
+│   ├── websigner/                      # Native messaging host para Web Signer
+│   │   ├── native_host.py             # Host stdio (getInfo, listCerts, sign*)
+│   │   └── installer.py              # Deploy de manifests per-user
+│   │
+│   ├── data/                           # Dados estáticos extraídos
+│   │   └── judicial_systems.py        # URLs de sistemas judiciais por estado
 │   │
 │   ├── certificate/                    # Lógica de certificados (sem imports de GTK)
 │   │   ├── a1_manager.py              # Gerenciamento de certificados A1 (PFX)
@@ -810,6 +857,10 @@ O BigCertificados foi desenvolvido com segurança como prioridade:
 | **importlib** | Importação dinâmica via `importlib.import_module` (não `__import__`) |
 | **Limpeza de temp** | Arquivos temporários em blocos `try/finally` |
 | **Nenhum segredo hardcoded** | Senhas e PINs nunca aparecem em logs ou código |
+| **PFX password via tempfile** | `pk12util -w` em vez de `-W` (senha não exposta via `ps aux`) |
+| **PIN como bytearray** | PIN do token em `bytearray` com wipe após uso (não `str` imutável) |
+| **OAuth token wipe** | Token VidaaS em `bytearray` + `clear_credentials()` no disconnect |
+| **CPF mascarado (LGPD)** | Carimbo de PDF exibe `***.456.789-**` em vez do CPF completo |
 
 ---
 
@@ -854,6 +905,30 @@ python -m src.main
 ---
 
 ## Changelog
+
+### v1.2.0 (2026-04-16)
+
+**WebSigner — Assinatura digital no navegador:**
+- Native messaging host em Python compativel com a extensao Web Signer (Softplan/Lacuna)
+- Substitui o binario nativo proprietario que nao funciona no Linux
+- Suporte a `getInfo`, `listCertificates`, `readCertificate`, `authorizeSignatures`, `signHash`, `signData`, `signHashBatch`
+- Instalador de manifests per-user para Firefox, Chrome, Chromium, Brave e Edge
+- Assinatura com certificado A1 (PFX) via biblioteca `cryptography` com dialog de senha (zenity/kdialog)
+- Compativel com e-SAJ (todos os TJs), PJe, eProc, PROJUDI e demais sistemas que usem Web Signer
+
+**Auditoria de seguranca (13 correcoes):**
+- 6 criticos: NameError em VidaaS signer, senha PFX exposta via `ps aux`, PIN como string imutavel, OAuth token sem limpeza, acesso direto a `_session`, temp files sem `finally`
+- 5 altos: validacao de nomes de pacotes antes de `pkexec`, CPF mascarado no carimbo (LGPD), extracao de judicial_systems e deps_dialog, versao duplicada
+- 3 medios: dead code removido, magic numbers, Pango.EllipsizeMode
+
+**Deteccao de perfis Firefox:**
+- Suporte a `~/.config/mozilla/firefox/` (caminho XDG usado por distribuicoes recentes)
+- Mantida compatibilidade com `~/.mozilla/firefox/` (caminho tradicional)
+
+**API publica no A3Manager:**
+- `has_active_session` property
+- `get_session()` method
+- `get_certificate_der()` — extrai DER do certificado do token ativo
 
 ### v1.1.0 (2025-06-19)
 
