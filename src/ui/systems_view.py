@@ -202,16 +202,33 @@ JUDICIAL_STATES = [
         "icon": "mark-location-symbolic",
         "systems": [
             {
-                "name": "PJe — TJMG",
-                "url": "https://pje.tjmg.jus.br",
-                "description": "PJe — Tribunal de Justiça de Minas Gerais",
+                "name": "eProc — TJMG 1ª Instância",
+                "url": "https://eproc1g.tjmg.jus.br/eproc/",
+                "description": "eProc 1º Grau — TJMG",
                 "icon": "document-edit-symbolic",
             },
-
             {
-                "name": "PJe — TRT3 (Minas Gerais)",
+                "name": "eProc — TJMG 2ª Instância",
+                "url": "https://eproc2g.tjmg.jus.br/eproc",
+                "description": "eProc 2º Grau — TJMG",
+                "icon": "document-edit-symbolic",
+            },
+            {
+                "name": "PJe — TJMG (legado)",
+                "url": "https://pje.tjmg.jus.br",
+                "description": "PJe — Tribunal de Justiça de Minas Gerais (migrado para eProc)",
+                "icon": "document-edit-symbolic",
+            },
+            {
+                "name": "PJe — TRT3 1ª Instância",
                 "url": "https://pje.trt3.jus.br",
-                "description": "PJe — Tribunal Regional do Trabalho 3ª Região",
+                "description": "PJe 1º Grau — Tribunal Regional do Trabalho 3ª Região",
+                "icon": "document-edit-symbolic",
+            },
+            {
+                "name": "PJe — TRT3 2ª Instância",
+                "url": "https://pje.trt3.jus.br/segundograu/login.seam",
+                "description": "PJe 2º Grau — Tribunal Regional do Trabalho 3ª Região",
                 "icon": "document-edit-symbolic",
             },
             {

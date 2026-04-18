@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 import logging
+import re
 import subprocess
 import threading
 
@@ -306,6 +307,11 @@ class DependencyCheckDialog(Adw.Dialog):
         toolbar.set_content(scroll)
         self.set_child(toolbar)
 
+    @staticmethod
+    def _is_valid_package_name(name: str) -> bool:
+        """Validate package name to prevent command injection."""
+        return bool(re.match(r"^[a-zA-Z0-9@._+-]+$", name))
+
     def _on_install_single_pkg(
         self,
         btn: Gtk.Button,
@@ -313,6 +319,10 @@ class DependencyCheckDialog(Adw.Dialog):
         row: Adw.ActionRow,
         suffix_box: Gtk.Box,
     ) -> None:
+        if not self._is_valid_package_name(pkg):
+            log.error("Invalid package name rejected: %s", pkg)
+            return
+
         btn.set_sensitive(False)
         btn.set_label("Instalando…")
 
@@ -430,7 +440,10 @@ class DependencyCheckDialog(Adw.Dialog):
         btn.set_sensitive(False)
         btn.set_label("Resolvendo…")
 
-        pkgs = list({d["pkg"] for d in dep_row_data if d["type"] == "pkg"})
+        pkgs = list({
+            d["pkg"] for d in dep_row_data
+            if d["type"] == "pkg" and self._is_valid_package_name(d["pkg"])
+        })
         svcs = [d for d in dep_row_data if d["type"] == "svc"]
 
         def resolve_thread() -> None:
