@@ -24,7 +24,7 @@ depends=(
     'python-asn1crypto'
     'python-oscrypto'
     'python-endesive'
-    'certifi'
+    'python-certifi'
 )
 optdepends=(
     'pcsc-tools: Diagnóstico de leitores PC/SC (pcsc_scan)'

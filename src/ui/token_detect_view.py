@@ -10,7 +10,7 @@ from typing import Optional
 import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Gtk, Adw, GLib, Pango  # noqa: E402
+from gi.repository import Gtk, Adw, GLib, GObject, Pango  # noqa: E402
 
 from src.certificate.token_database import TokenDatabase, TokenInfo
 
@@ -19,6 +19,10 @@ log = logging.getLogger(__name__)
 
 class TokenDetectView(Gtk.ScrolledWindow):
     """View showing detected tokens and their status."""
+
+    __gsignals__ = {
+        "scan-requested": (GObject.SignalFlags.RUN_LAST, None, ()),
+    }
 
     def __init__(self, token_db: TokenDatabase) -> None:
         super().__init__()
@@ -62,12 +66,18 @@ class TokenDetectView(Gtk.ScrolledWindow):
         clamp.set_child(content)
         self.set_child(clamp)
 
-    def _on_scan_clicked(self, _button: Gtk.Button) -> None:
-        self.emit_scan_request()
+    @property
+    def token_count(self) -> int:
+        """Number of currently detected tokens."""
+        return len(self._token_rows)
 
-    def emit_scan_request(self) -> None:
-        """Can be overridden or connected to from window."""
-        pass
+    def get_row(self, vid: int, pid: int) -> Adw.ActionRow | None:
+        """Get the row widget for a token by USB vendor/product ID."""
+        key = f"{vid:04x}:{pid:04x}"
+        return self._token_rows.get(key)
+
+    def _on_scan_clicked(self, _button: Gtk.Button) -> None:
+        self.emit("scan-requested")
 
     def add_token(self, vid: int, pid: int, devnode: str) -> None:
         """Add a detected token to the list."""

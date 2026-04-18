@@ -7,9 +7,12 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Gtk, Adw, GLib  # noqa: E402
 
-from src.utils.app_lock import verify_password
-
-MAX_ATTEMPTS = 3
+from src.utils.app_lock import (
+    verify_password,
+    get_lockout_remaining,
+    record_failed_attempt,
+    reset_failed_attempts,
+)
 
 
 class LockDialog(Adw.Dialog):
@@ -18,7 +21,8 @@ class LockDialog(Adw.Dialog):
     def __init__(self, on_unlocked: "Callable[[], None]") -> None:
         super().__init__()
         self._on_unlocked = on_unlocked
-        self._attempts = 0
+        self._unlock_btn: Gtk.Button | None = None
+        self._lockout_timer_id: int = 0
 
         self.set_title("BigCertificados")
         self.set_content_width(400)
@@ -65,16 +69,21 @@ class LockDialog(Adw.Dialog):
         box.append(self._error_label)
 
         # Unlock button
-        unlock_btn = Gtk.Button(label="Desbloquear")
-        unlock_btn.add_css_class("suggested-action")
-        unlock_btn.add_css_class("pill")
-        unlock_btn.set_halign(Gtk.Align.CENTER)
-        unlock_btn.set_size_request(200, -1)
-        unlock_btn.connect("clicked", self._on_submit)
-        box.append(unlock_btn)
+        self._unlock_btn = Gtk.Button(label="Desbloquear")
+        self._unlock_btn.add_css_class("suggested-action")
+        self._unlock_btn.add_css_class("pill")
+        self._unlock_btn.set_halign(Gtk.Align.CENTER)
+        self._unlock_btn.set_size_request(200, -1)
+        self._unlock_btn.connect("clicked", self._on_submit)
+        box.append(self._unlock_btn)
 
         toolbar.set_content(box)
         self.set_child(toolbar)
+
+        # Check if already locked out on startup
+        remaining = get_lockout_remaining()
+        if remaining > 0:
+            self._start_lockout(remaining)
 
     def _on_submit(self, *_args: object) -> None:
         password = self._password_row.get_text()
@@ -82,22 +91,53 @@ class LockDialog(Adw.Dialog):
             self._show_error("Digite a senha")
             return
 
+        # Check active lockout
+        remaining = get_lockout_remaining()
+        if remaining > 0:
+            self._start_lockout(remaining)
+            self._password_row.set_text("")
+            return
+
         if verify_password(password):
+            reset_failed_attempts()
             self.force_close()
             self._on_unlocked()
         else:
-            self._attempts += 1
-            remaining = MAX_ATTEMPTS - self._attempts
-            if remaining > 0:
-                self._show_error(
-                    f"Senha incorreta — {remaining} tentativa(s) restante(s)"
-                )
-            else:
-                self._show_error("Número máximo de tentativas atingido")
-                self._password_row.set_sensitive(False)
+            delay = record_failed_attempt()
+            self._start_lockout(delay)
 
         self._password_row.set_text("")
 
+    def _start_lockout(self, seconds: float) -> None:
+        """Disable input and show countdown until lockout expires."""
+        self._password_row.set_sensitive(False)
+        if self._unlock_btn:
+            self._unlock_btn.set_sensitive(False)
+        self._show_error(f"Aguarde {int(seconds)}s antes de tentar novamente")
+
+        # Cancel any existing timer
+        if self._lockout_timer_id:
+            GLib.source_remove(self._lockout_timer_id)
+
+        self._lockout_timer_id = GLib.timeout_add_seconds(
+            max(1, int(seconds)), self._end_lockout,
+        )
+
+    def _end_lockout(self) -> bool:
+        """Re-enable input after lockout expires."""
+        self._lockout_timer_id = 0
+        # Double-check the lockout actually expired
+        remaining = get_lockout_remaining()
+        if remaining > 0:
+            self._start_lockout(remaining)
+            return False
+        self._password_row.set_sensitive(True)
+        if self._unlock_btn:
+            self._unlock_btn.set_sensitive(True)
+        self._show_error("")
+        self._error_label.set_visible(False)
+        return False  # Don't repeat
+
     def _show_error(self, message: str) -> None:
         self._error_label.set_label(message)
-        self._error_label.set_visible(True)
+        self._error_label.set_visible(bool(message))

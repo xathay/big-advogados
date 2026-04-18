@@ -6,13 +6,15 @@ browser extension, replacing the Softplan binary if present.
 
 from __future__ import annotations
 
+import io
 import json
 import logging
 import os
 import stat
 import subprocess
+import zipfile
+from configparser import ConfigParser
 from pathlib import Path
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -202,7 +204,7 @@ def check_installation_status() -> dict:
             except Exception:
                 pass
 
-    # Check if extension is installed in Firefox
+    # Check if Softplan extension is installed in Firefox
     for base in [Path.home() / ".config" / "mozilla" / "firefox", Path.home() / ".mozilla" / "firefox"]:
         if not base.is_dir():
             continue
@@ -210,7 +212,129 @@ def check_installation_status() -> dict:
             status["extension_installed"] = True
             break
 
+    # Check if BigCertificados bridge extension is installed
+    status["bridge_installed"] = False
+    for profile_path in _find_firefox_profiles():
+        xpi_path = profile_path / "extensions" / f"{BRIDGE_EXTENSION_ID}.xpi"
+        if xpi_path.is_file():
+            status["bridge_installed"] = True
+            break
+
     return status
+
+
+BRIDGE_EXTENSION_ID = "webpki-bridge@bigcertificados"
+
+
+def _build_xpi() -> bytes:
+    """Build an XPI (ZIP) from the bridge extension directory."""
+    bridge_dir = Path(__file__).resolve().parent / "firefox-bridge"
+    if not bridge_dir.is_dir():
+        raise FileNotFoundError(f"Bridge extension directory not found: {bridge_dir}")
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for file_path in sorted(bridge_dir.iterdir()):
+            if file_path.is_file():
+                zf.write(file_path, file_path.name)
+    return buf.getvalue()
+
+
+def _find_firefox_profiles() -> list[Path]:
+    """Find all Firefox profile directories."""
+    profiles: list[Path] = []
+    for base in [
+        Path.home() / ".config" / "mozilla" / "firefox",
+        Path.home() / ".mozilla" / "firefox",
+    ]:
+        profiles_ini = base / "profiles.ini"
+        if not profiles_ini.is_file():
+            continue
+        parser = ConfigParser()
+        parser.read(str(profiles_ini))
+        for section in parser.sections():
+            if not section.startswith("Profile"):
+                continue
+            path_val = parser.get(section, "Path", fallback="")
+            is_relative = parser.getboolean(section, "IsRelative", fallback=True)
+            if not path_val:
+                continue
+            if is_relative:
+                profile_path = base / path_val
+            else:
+                profile_path = Path(path_val)
+            if profile_path.is_dir():
+                profiles.append(profile_path)
+    return profiles
+
+
+def _ensure_unsigned_extensions_allowed(profile_path: Path) -> None:
+    """Set xpinstall.signatures.required=false in user.js so unsigned XPI loads."""
+    user_js = profile_path / "user.js"
+    pref_line = 'user_pref("xpinstall.signatures.required", false);\n'
+
+    if user_js.is_file():
+        content = user_js.read_text(encoding="utf-8")
+        if "xpinstall.signatures.required" in content:
+            return  # already set (true or false) — don't override
+    with open(user_js, "a", encoding="utf-8") as f:
+        f.write(pref_line)
+    log.info("Set xpinstall.signatures.required=false in %s", user_js)
+
+
+def install_bridge_extension() -> dict[str, bool]:
+    """Package and install the WebPKI bridge extension into Firefox profiles.
+
+    The XPI is placed in <profile>/extensions/<extension-id>.xpi.
+    Firefox loads extensions from this directory on startup.
+    Also sets xpinstall.signatures.required=false so the unsigned
+    extension is accepted.
+
+    Returns dict mapping profile name → success.
+    """
+    results: dict[str, bool] = {}
+
+    try:
+        xpi_data = _build_xpi()
+    except FileNotFoundError as exc:
+        log.error("Cannot build bridge XPI: %s", exc)
+        return {"build": False}
+
+    profiles = _find_firefox_profiles()
+    if not profiles:
+        log.warning("No Firefox profiles found")
+        return {"no_profiles": False}
+
+    for profile_path in profiles:
+        profile_name = profile_path.name
+        ext_dir = profile_path / "extensions"
+        xpi_path = ext_dir / f"{BRIDGE_EXTENSION_ID}.xpi"
+        try:
+            ext_dir.mkdir(parents=True, exist_ok=True)
+            xpi_path.write_bytes(xpi_data)
+            _ensure_unsigned_extensions_allowed(profile_path)
+            results[profile_name] = True
+            log.info("Installed bridge extension to %s", xpi_path)
+        except Exception as exc:
+            results[profile_name] = False
+            log.error("Failed to install bridge to %s: %s", profile_path, exc)
+
+    return results
+
+
+def uninstall_bridge_extension() -> dict[str, bool]:
+    """Remove the bridge extension from all Firefox profiles."""
+    results: dict[str, bool] = {}
+    for profile_path in _find_firefox_profiles():
+        xpi_path = profile_path / "extensions" / f"{BRIDGE_EXTENSION_ID}.xpi"
+        if xpi_path.is_file():
+            try:
+                xpi_path.unlink()
+                results[profile_path.name] = True
+            except Exception as exc:
+                results[profile_path.name] = False
+                log.error("Failed to remove bridge from %s: %s", profile_path, exc)
+    return results
 
 
 def configure_pfx_path(pfx_path: str) -> bool:

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import Optional
 
 import gi
 gi.require_version("Gtk", "4.0")
@@ -15,9 +14,6 @@ from src.certificate.a3_manager import A3Manager
 from src.certificate.token_database import TokenDatabase
 from src.ui.dashboard_view import DashboardView
 from src.ui.unified_certificates_view import UnifiedCertificatesView
-from src.ui.systems_view import SystemsView
-from src.ui.signer_view import SignerView
-from src.ui.vidaas_view import VidaaSView
 from src.ui.pin_dialog import PinDialog
 from src.ui.lock_screen import LockDialog
 from src.utils.udev_monitor import UdevMonitor
@@ -148,19 +144,20 @@ class MainWindow(Adw.ApplicationWindow):
         search_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         search_scroll.set_child(search_clamp)
 
-        # ── Views ──
+        # ── Views (lazy-loaded except dashboard) ──
         self._dashboard = DashboardView(navigate_to=self._navigate_to)
+        self._certs_view: UnifiedCertificatesView | None = None
 
-        self._certs_view = UnifiedCertificatesView(self._token_db)
-        self._certs_view.token_view.emit_scan_request = self._do_scan
-
-        self._systems_view = SystemsView()
-        self._signer_view = SignerView(a3_manager=self._a3_manager)
-        self._vidaas_view = VidaaSView(self._a3_manager)
-
-        # Config pages (promoted from menu to sidebar)
-        self._deps_page = self._build_deps_page()
-        self._browsers_page = self._build_browsers_page()
+        # Factories for on-demand view creation
+        self._view_factories: dict[str, callable] = {
+            "certificates": self._create_certs_view,
+            "vidaas": self._create_vidaas_view,
+            "signer": self._create_signer_view,
+            "systems": self._create_systems_view,
+            "deps": self._build_deps_page,
+            "browsers": self._build_browsers_page,
+        }
+        self._loaded_views: dict[str, Gtk.Widget] = {"home": self._dashboard}
 
         # ── View stack (internal navigation) ──
         self._view_stack = Gtk.Stack()
@@ -170,12 +167,6 @@ class MainWindow(Adw.ApplicationWindow):
         self._view_stack.set_vexpand(True)
 
         self._view_stack.add_named(self._dashboard, "home")
-        self._view_stack.add_named(self._certs_view, "certificates")
-        self._view_stack.add_named(self._vidaas_view, "vidaas")
-        self._view_stack.add_named(self._signer_view, "signer")
-        self._view_stack.add_named(self._systems_view, "systems")
-        self._view_stack.add_named(self._deps_page, "deps")
-        self._view_stack.add_named(self._browsers_page, "browsers")
 
         # ── Content stack: views vs search ──
         self._content_stack = Gtk.Stack()
@@ -188,6 +179,7 @@ class MainWindow(Adw.ApplicationWindow):
         self._sidebar_list.add_css_class("navigation-sidebar")
         self._sidebar_list.set_selection_mode(Gtk.SelectionMode.SINGLE)
         self._sidebar_rows: dict[str, Gtk.ListBoxRow] = {}
+        self._row_view_ids: dict[Gtk.ListBoxRow, str] = {}
 
         current_category: str | None = None
         for view_id, label, icon_name, category in self._SIDEBAR_ITEMS:
@@ -207,7 +199,7 @@ class MainWindow(Adw.ApplicationWindow):
                 self._sidebar_list.append(sep_row)
 
             row = Gtk.ListBoxRow()
-            row._view_id = view_id  # noqa: SLF001
+            self._row_view_ids[row] = view_id
             hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
             hbox.set_margin_top(6)
             hbox.set_margin_bottom(6)
@@ -256,19 +248,18 @@ class MainWindow(Adw.ApplicationWindow):
         if first_row:
             self._sidebar_list.select_row(first_row)
 
-        # Wire up token row activation
-        for row in self._certs_view.token_view._token_rows.values():
-            row.connect("activated", self._on_token_row_activated)
+        # Note: token rows are wired up dynamically in _on_scan_result / _on_usb_event
 
     # ── Sidebar callbacks ──
 
     def _on_sidebar_selected(
         self, _listbox: Gtk.ListBox, row: Gtk.ListBoxRow | None,
     ) -> None:
-        if not row or not hasattr(row, "_view_id"):
+        if not row or row not in self._row_view_ids:
             return
-        view_id: str = row._view_id  # noqa: SLF001
+        view_id = self._row_view_ids[row]
 
+        self._ensure_view_loaded(view_id)
         self._view_stack.set_visible_child_name(view_id)
         self._content_stack.set_visible_child_name("views")
 
@@ -342,6 +333,47 @@ class MainWindow(Adw.ApplicationWindow):
         scroll.set_child(status)
         return scroll
 
+    # ── Lazy view loading ──
+
+    def _ensure_view_loaded(self, view_id: str) -> Gtk.Widget:
+        """Create a view on first access, add it to the stack, and return it."""
+        if view_id in self._loaded_views:
+            return self._loaded_views[view_id]
+        factory = self._view_factories.get(view_id)
+        if not factory:
+            return self._dashboard
+        view = factory()
+        self._view_stack.add_named(view, view_id)
+        self._loaded_views[view_id] = view
+        return view
+
+    def _create_certs_view(self) -> UnifiedCertificatesView:
+        """Factory for the certificates view — wires scan signal."""
+        self._certs_view = UnifiedCertificatesView(self._token_db)
+        self._certs_view.token_view.connect(
+            "scan-requested", lambda _v: self._do_scan(),
+        )
+        return self._certs_view
+
+    @staticmethod
+    def _create_systems_view() -> Gtk.Widget:
+        from src.ui.systems_view import SystemsView
+        return SystemsView()
+
+    def _create_signer_view(self) -> Gtk.Widget:
+        from src.ui.signer_view import SignerView
+        return SignerView(a3_manager=self._a3_manager)
+
+    def _create_vidaas_view(self) -> Gtk.Widget:
+        from src.ui.vidaas_view import VidaaSView
+        return VidaaSView(self._a3_manager)
+
+    def _ensure_certs_view(self) -> UnifiedCertificatesView:
+        """Guarantee the certificates view exists (needed for USB events)."""
+        if self._certs_view is None:
+            self._ensure_view_loaded("certificates")
+        return self._certs_view  # type: ignore[return-value]
+
     # ── Search ──
 
     def _on_search_changed(self, entry: Gtk.SearchEntry) -> None:
@@ -368,7 +400,9 @@ class MainWindow(Adw.ApplicationWindow):
             self._sidebar_list.select_row(row)
 
         if sidebar_id and tab_id == "systems":
-            self._systems_view.select_section(sidebar_id)
+            view = self._loaded_views.get("systems")
+            if view:
+                view.select_section(sidebar_id)
 
     def _add_result(
         self, title: str, subtitle: str, icon: str,
@@ -539,7 +573,7 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _do_scan(self) -> None:
         self._set_status("Buscando dispositivos USB...")
-        self._certs_view.token_view.clear()
+        self._ensure_certs_view().token_view.clear()
 
         def scan_thread() -> None:
             found = self._udev_monitor.scan_existing()
@@ -548,12 +582,12 @@ class MainWindow(Adw.ApplicationWindow):
         threading.Thread(target=scan_thread, daemon=True).start()
 
     def _on_scan_result(self, found: list[tuple[int, int, str]]) -> bool:
+        certs_view = self._ensure_certs_view()
         for vid, pid, devnode in found:
-            self._certs_view.token_view.add_token(vid, pid, devnode)
+            certs_view.token_view.add_token(vid, pid, devnode)
 
             # Wire up the new row
-            key = f"{vid:04x}:{pid:04x}"
-            row = self._certs_view.token_view._token_rows.get(key)
+            row = certs_view.token_view.get_row(vid, pid)
             if row:
                 row.connect(
                     "activated",
@@ -594,12 +628,12 @@ class MainWindow(Adw.ApplicationWindow):
     def _on_usb_event(
         self, action: str, vid: int, pid: int, devnode: str,
     ) -> bool:
+        certs_view = self._ensure_certs_view()
         if action == "add":
-            self._certs_view.token_view.add_token(vid, pid, devnode)
+            certs_view.token_view.add_token(vid, pid, devnode)
             self._set_status(f"Token conectado: {vid:04x}:{pid:04x}")
 
-            key = f"{vid:04x}:{pid:04x}"
-            row = self._certs_view.token_view._token_rows.get(key)
+            row = certs_view.token_view.get_row(vid, pid)
             if row:
                 row.connect(
                     "activated",
@@ -607,16 +641,18 @@ class MainWindow(Adw.ApplicationWindow):
                     vid, pid,
                 )
 
-            token_count = len(self._certs_view.token_view._token_rows)
-            self._dashboard.update_token_status(token_count)
+            self._dashboard.update_token_status(
+                certs_view.token_view.token_count,
+            )
 
         elif action == "remove":
-            self._certs_view.token_view.remove_token(vid, pid)
+            certs_view.token_view.remove_token(vid, pid)
             self._set_status(f"Token removido: {vid:04x}:{pid:04x}")
-            self._certs_view.reset_a3_view()
+            certs_view.reset_a3_view()
 
-            token_count = len(self._certs_view.token_view._token_rows)
-            self._dashboard.update_token_status(token_count)
+            self._dashboard.update_token_status(
+                certs_view.token_view.token_count,
+            )
 
         return False
 
@@ -669,14 +705,14 @@ class MainWindow(Adw.ApplicationWindow):
         threading.Thread(target=login_thread, daemon=True).start()
 
     def _on_certificates_loaded(self, certs: list) -> bool:
-        self._certs_view.show_a3_certificates(certs)
+        self._ensure_certs_view().show_a3_certificates(certs)
         self._navigate_to("certificates")
         self._set_status(f"{len(certs)} certificado(s) encontrado(s)")
         return False
 
     def _on_login_failed(self) -> bool:
         self._set_status("Falha na autenticação — PIN incorreto?")
-        self._certs_view.reset_a3_view()
+        self._ensure_certs_view().reset_a3_view()
         return False
 
     def _set_status(self, text: str) -> None:

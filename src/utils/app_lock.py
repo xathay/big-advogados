@@ -11,8 +11,8 @@ import json
 import logging
 import os
 import secrets
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional
 
 from src.utils.xdg import config_dir
 
@@ -96,3 +96,59 @@ def remove_password() -> None:
     if path.exists():
         path.unlink()
         log.info("App lock password removed")
+
+
+MAX_BACKOFF_SECONDS = 3600  # 1 hour cap
+
+
+def record_failed_attempt() -> float:
+    """Record a failed login attempt and return lockout delay in seconds."""
+    path = _lock_path()
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return 0.0
+
+    attempts = data.get("failed_attempts", 0) + 1
+    delay = min(2 ** attempts, MAX_BACKOFF_SECONDS)
+    locked_until = (datetime.now() + timedelta(seconds=delay)).isoformat()
+
+    data["failed_attempts"] = attempts
+    data["locked_until"] = locked_until
+    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    return float(delay)
+
+
+def get_lockout_remaining() -> float:
+    """Return seconds remaining in lockout, or 0.0 if not locked out."""
+    path = _lock_path()
+    if not path.exists():
+        return 0.0
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return 0.0
+
+    locked_until_str = data.get("locked_until")
+    if not locked_until_str:
+        return 0.0
+    try:
+        locked_until = datetime.fromisoformat(locked_until_str)
+    except ValueError:
+        return 0.0
+    remaining = (locked_until - datetime.now()).total_seconds()
+    return max(0.0, remaining)
+
+
+def reset_failed_attempts() -> None:
+    """Clear backoff state after successful login."""
+    path = _lock_path()
+    if not path.exists():
+        return
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return
+    data.pop("failed_attempts", None)
+    data.pop("locked_until", None)
+    path.write_text(json.dumps(data, indent=2), encoding="utf-8")

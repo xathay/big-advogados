@@ -15,7 +15,7 @@ Gerenciador completo de certificados digitais para advogados e profissionais do 
   <img src="https://img.shields.io/badge/Adwaita-1.0%2B-4A86CF?logo=gnome&logoColor=white" alt="Adwaita 1.0+">
   <img src="https://img.shields.io/badge/Platform-GNU%2FLinux-FCC624?logo=linux&logoColor=black" alt="Platform: GNU/Linux">
   <img src="https://img.shields.io/badge/Arch_Linux-1793D1?logo=arch-linux&logoColor=white" alt="Arch Linux">
-  <img src="https://img.shields.io/badge/Status-v1.1.0-green?logo=git&logoColor=white" alt="Status: v1.1.0">
+  <img src="https://img.shields.io/badge/Status-v1.2.0-green?logo=git&logoColor=white" alt="Status: v1.2.0">
 </p>
 
 > ⚠️ **Este projeto está em fase de testes.**
@@ -26,7 +26,7 @@ Gerenciador completo de certificados digitais para advogados e profissionais do 
 ## Índice
 
 - [Visão Geral](#visão-geral)
-- [Screenshot](#screenshot)
+- [Screenshots](#screenshots)
 - [Funcionalidades](#funcionalidades)
   - [Certificados A3 (Token USB)](#certificados-a3-token-usb)
   - [Certificados A1 (PFX/P12)](#certificados-a1-pfxp12)
@@ -73,7 +73,7 @@ quem precisa acessar sistemas judiciais eletrônicos como PJe, PROJUDI e e-SAJ.
 | **Detecção de tokens USB** | Hotplug automático via udev — conecte o token e ele aparece |
 | **Certificados A1 e A3** | Visualização unificada de certificados PFX/P12 e tokens PKCS#11 |
 | **Assinador digital de PDF** | Assinatura ICP-Brasil com carimbo visual, em lote |
-| **36 sistemas judiciais** | Acesso com um clique, organizados por estado e tribunal |
+| **39 sistemas judiciais** | Acesso com um clique, organizados por estado e tribunal |
 | **68 drivers catalogados** | Gerenciador de drivers com instalação automática via AUR |
 | **6 navegadores suportados** | Firefox, Chrome, Chromium, Brave, Edge e Opera |
 | **Busca global** | Pesquisa em toda a aplicação com Ctrl+F |
@@ -82,9 +82,19 @@ quem precisa acessar sistemas judiciais eletrônicos como PJe, PROJUDI e e-SAJ.
 | **VidaaS Connect** | Assinatura em nuvem via Valid Certificadora |
 | **Proteção por senha** | PBKDF2-HMAC-SHA256 com 600.000 iterações |
 
-## Screenshot
+## Screenshots
 
-![BigCertificados](docs/screenshots/tokens.png)
+| Início | Certificados |
+|--------|-------------|
+| ![Início](docs/screenshots/Tela%20principal%20(tela%20nova).png) | ![Certificados](docs/screenshots/Certificados%20(tela%20nova).png) |
+
+| Sistemas Judiciais | Assinador de PDF |
+|--------------------|------------------|
+| ![Sistemas Judiciais](docs/screenshots/Sistemas%20judiciais%20(tela%20nova).png) | ![Assinador de PDF](docs/screenshots/Assinador%20de%20PDF%20(tela%20nova).png) |
+
+| VidaaS Connect |
+|----------------|
+| ![VidaaS Connect](docs/screenshots/Vidaas%20Connect.png) |
 
 ---
 
@@ -178,7 +188,7 @@ A seção **Sistemas** utiliza `Adw.OverlaySplitView` com sidebar colapsável,
 organizando 4 seções: Sistemas Judiciais, PJeOffice Pro, Drivers & Tokens
 e Navegadores.
 
-O BigCertificados oferece acesso direto a **36 sistemas judiciais**, organizados
+O BigCertificados oferece acesso direto a **39 sistemas judiciais**, organizados
 por tribunal e estado, em **8 regiões**:
 
 | Região | Tribunais / Sistemas |
@@ -307,7 +317,7 @@ O BigCertificados inclui um sistema de busca global acessível via
 - **Escopo completo** — pesquisa em:
   - Abas de navegação (Certificados, Sistemas, Assinador, VidaaS)
   - Ações do menu (Configurar Navegadores, Proteção por Senha, Sobre)
-  - Sistemas judiciais (36 sistemas com nome, tribunal e URL)
+  - Sistemas judiciais (39 sistemas com nome, tribunal e URL)
   - Drivers & Tokens (68 entries com nome e descrição)
   - Navegadores detectados (Firefox, Chrome, Brave, etc.)
   - PJeOffice Pro (instalar, atualizar, abrir)
