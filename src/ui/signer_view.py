@@ -259,8 +259,20 @@ class SignerView(Gtk.ScrolledWindow):
         self._visible_row.set_active(True)
         opts_group.add(self._visible_row)
 
+        self._cert_page_row = Adw.SwitchRow()
+        self._cert_page_row.set_title("Página de certificação dedicada")
+        self._cert_page_row.set_subtitle(
+            "Acrescenta uma página final com o carimbo, hash e instruções "
+            "de validação — preserva o layout original do documento"
+        )
+        self._cert_page_row.set_active(False)
+        opts_group.add(self._cert_page_row)
+
         self._page_row = Adw.ComboRow()
         self._page_row.set_title("Página do carimbo")
+        self._page_row.set_subtitle(
+            "Ignorado quando \"Página de certificação dedicada\" está ativada"
+        )
         page_model = Gtk.StringList.new([
             "Última página",
             "Primeira página",
@@ -945,6 +957,7 @@ class SignerView(Gtk.ScrolledWindow):
             location=self._location_row.get_text(),
             visible=self._visible_row.get_active(),
             page=self._get_selected_page(),
+            signature_page="append" if self._cert_page_row.get_active() else "embed",
         )
 
         pdf_paths = list(self._pdf_paths)
