@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -39,8 +40,11 @@ class SignatureOptions:
     location: str = ""
     contact: str = ""
     visible: bool = True
-    page: int = -1  # -1 = last page
-    position: str = "bottom"  # bottom, top
+    page: int = -1  # -1 = last page (ignored when signature_page == "append")
+    position: str = "bottom"  # bottom, top (ignored when signature_page == "append")
+    # "embed"  → stamp on the document's last page (overlay).
+    # "append" → append a dedicated certification page at the end.
+    signature_page: str = "embed"
 
 
 def sign_pdf(
@@ -104,26 +108,33 @@ def sign_pdf(
         other_certs = list(chain) if chain else []
         pdf_bytes = pdf_file.read_bytes()
 
-        # Determine signature page
-        sig_page = options.page
-        if sig_page == -1:
-            sig_page = _count_pdf_pages(pdf_bytes) - 1
-            if sig_page < 0:
-                sig_page = 0
-
         now = datetime.now(timezone.utc)
         local_now = datetime.now().astimezone()
         signing_date = now.strftime("D:%Y%m%d%H%M%S+00'00'")
 
-        # Signature box: A4 = 595 x 842 pt
-        margin = 20
-        box_height = 80
-        box_width = 360
+        # SHA-256 of the input PDF — embedded in stamp + certification page.
+        pdf_hash = hashlib.sha256(pdf_bytes).hexdigest() if options.visible else ""
 
-        if options.position == "bottom":
-            sig_box = (margin, margin, margin + box_width, margin + box_height)
+        if options.visible and options.signature_page == "append":
+            from src.certificate.certification_page import append_certification_page
+            pdf_bytes, sig_page, sig_box = append_certification_page(
+                pdf_bytes, cert_info, local_now, pdf_hash, options.reason,
+            )
         else:
-            sig_box = (margin, 842 - margin - box_height, margin + box_width, 842 - margin)
+            sig_page = options.page
+            if sig_page == -1:
+                sig_page = _count_pdf_pages(pdf_bytes) - 1
+                if sig_page < 0:
+                    sig_page = 0
+
+            # A4 = 595 x 842 pt. Aspect 3.5:1 to match stamp PNG.
+            margin = 20
+            box_height = 80
+            box_width = 280
+            if options.position == "bottom":
+                sig_box = (margin, margin, margin + box_width, margin + box_height)
+            else:
+                sig_box = (margin, 842 - margin - box_height, margin + box_width, 842 - margin)
 
         udct = {
             "sigflags": 3,
@@ -144,7 +155,7 @@ def sign_pdf(
             import tempfile
 
             stamp_img = generate_stamp_image(
-                cert_info, local_now, reason=options.reason,
+                cert_info, local_now, reason=options.reason, pdf_hash=pdf_hash,
             )
             tmp_stamp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
             stamp_img.save(tmp_stamp.name, format="PNG")
@@ -279,26 +290,33 @@ def sign_pdf_a3(
     try:
         pdf_bytes = pdf_file.read_bytes()
 
-        # Determine signature page
-        sig_page = options.page
-        if sig_page == -1:
-            sig_page = _count_pdf_pages(pdf_bytes) - 1
-            if sig_page < 0:
-                sig_page = 0
-
         now = datetime.now(timezone.utc)
         local_now = datetime.now().astimezone()
         signing_date = now.strftime("D:%Y%m%d%H%M%S+00'00'")
 
-        # Signature box: A4 = 595 x 842 pt
-        margin = 20
-        box_height = 80
-        box_width = 360
+        # SHA-256 of the input PDF — embedded in stamp + certification page.
+        pdf_hash = hashlib.sha256(pdf_bytes).hexdigest() if options.visible else ""
 
-        if options.position == "bottom":
-            sig_box = (margin, margin, margin + box_width, margin + box_height)
+        if options.visible and options.signature_page == "append":
+            from src.certificate.certification_page import append_certification_page
+            pdf_bytes, sig_page, sig_box = append_certification_page(
+                pdf_bytes, cert_info, local_now, pdf_hash, options.reason,
+            )
         else:
-            sig_box = (margin, 842 - margin - box_height, margin + box_width, 842 - margin)
+            sig_page = options.page
+            if sig_page == -1:
+                sig_page = _count_pdf_pages(pdf_bytes) - 1
+                if sig_page < 0:
+                    sig_page = 0
+
+            # A4 = 595 x 842 pt. Aspect 3.5:1 to match stamp PNG.
+            margin = 20
+            box_height = 80
+            box_width = 280
+            if options.position == "bottom":
+                sig_box = (margin, margin, margin + box_width, margin + box_height)
+            else:
+                sig_box = (margin, 842 - margin - box_height, margin + box_width, 842 - margin)
 
         udct = {
             "sigflags": 3,
@@ -319,7 +337,7 @@ def sign_pdf_a3(
             import tempfile
 
             stamp_img = generate_stamp_image(
-                cert_info, local_now, reason=options.reason,
+                cert_info, local_now, reason=options.reason, pdf_hash=pdf_hash,
             )
             tmp_stamp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
             stamp_img.save(tmp_stamp.name, format="PNG")
@@ -588,7 +606,7 @@ def _sign_pdf_vidaas_api(
             import tempfile
 
             stamp_img = generate_stamp_image(
-                cert_info, local_now, reason=options.reason,
+                cert_info, local_now, reason=options.reason, pdf_hash=pdf_hash,
             )
             tmp_stamp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
             stamp_img.save(tmp_stamp.name, format="PNG")
