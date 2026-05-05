@@ -1,11 +1,11 @@
 <p align="center">
-  <img src="data/icons/bigcertificados.svg" alt="BigCertificados" width="128" height="128">
+  <img src="data/icons/bigcertificados.svg" alt="Big Advogados" width="128" height="128">
 </p>
 
-<h1 align="center">BigCertificados</h1>
+<h1 align="center">Big Advogados</h1>
 
 <p align="center">
-Gerenciador completo de certificados digitais para advogados e profissionais do Direito no GNU/Linux — certificados A1 (PFX/P12), A3 (token USB), assinatura digital de PDFs, integração com navegadores, acesso a sistemas judiciais e gerenciamento de drivers.
+Stack jurídica completa para advogados brasileiros no GNU/Linux — certificados digitais A1 (PFX/P12) e A3 (token USB), assinatura digital de PDFs, WebSigner para sistemas judiciais, integração com navegadores, acesso direto a tribunais e gerenciamento de drivers.
 </p>
 
 <p align="center">
@@ -59,14 +59,14 @@ Gerenciador completo de certificados digitais para advogados e profissionais do 
 
 ## Visão Geral
 
-BigCertificados é um aplicativo **GTK4/Adwaita** criado para o ecossistema do
+Big Advogados é um aplicativo **GTK4/Adwaita** criado para o ecossistema do
 [BigLinux](https://biglinux.com.br),
 [BigCommunity](https://communitybig.org/) e distribuições baseadas no
 **Arch Linux** (Manjaro, EndeavourOS, CachyOS e outras). Ele simplifica o uso
 de certificados digitais no GNU/Linux — uma tarefa historicamente complexa para
 quem precisa acessar sistemas judiciais eletrônicos como PJe, PROJUDI e e-SAJ.
 
-### O que o BigCertificados faz
+### O que o Big Advogados faz
 
 | Recurso | Descrição |
 |---------|-----------|
@@ -152,7 +152,7 @@ Certisign, Serasa Experian, Soluti, Valid Certificadora, Safeweb, AC OAB
 
 ### Integração com Navegadores
 
-O BigCertificados detecta automaticamente todos os navegadores baseados em
+O Big Advogados detecta automaticamente todos os navegadores baseados em
 Chromium e o Firefox, incluindo todos os seus perfis:
 
 | Navegador | Detecção | Configuração NSS | Brave Shields |
@@ -188,7 +188,7 @@ A seção **Sistemas** utiliza `Adw.OverlaySplitView` com sidebar colapsável,
 organizando 4 seções: Sistemas Judiciais, PJeOffice Pro, Drivers & Tokens
 e Navegadores.
 
-O BigCertificados oferece acesso direto a **39 sistemas judiciais**, organizados
+O Big Advogados oferece acesso direto a **39 sistemas judiciais**, organizados
 por tribunal e estado, em **8 regiões**:
 
 | Região | Tribunais / Sistemas |
@@ -309,7 +309,7 @@ PKCS#11 (`.so`) e comando de verificação.
 
 ### Busca Global
 
-O BigCertificados inclui um sistema de busca global acessível via
+O Big Advogados inclui um sistema de busca global acessível via
 **Ctrl+F** ou pelo ícone de lupa no cabeçalho:
 
 - **Busca integrada** — `Gtk.SearchBar` + `Gtk.SearchEntry` sincronizados
@@ -350,7 +350,7 @@ O BigCertificados inclui um sistema de busca global acessível via
 > componente nativo oficial (binário proprietário) **não funciona no Linux**
 > — o binário da Softplan v2.12.1 (2022) é incompatível com a extensão atual.
 
-O BigCertificados resolve isso com um **native messaging host** em Python que
+O Big Advogados resolve isso com um **native messaging host** em Python que
 substitui o binário da Softplan, implementando o protocolo completo da extensão
 Web Signer:
 
@@ -364,9 +364,9 @@ Web Signer:
 
 **Como funciona:**
 
-1. A extensão Web Signer detecta o BigCertificados como native messaging host
+1. A extensão Web Signer detecta o Big Advogados como native messaging host
 2. O e-SAJ lista os certificados disponíveis no dropdown
-3. Ao assinar, o BigCertificados pede a senha do PFX via dialog
+3. Ao assinar, o Big Advogados pede a senha do PFX via dialog
 4. A assinatura é feita localmente com a biblioteca `cryptography`
 5. O resultado é enviado de volta ao e-SAJ para validação
 
@@ -388,7 +388,7 @@ sistema que use a extensão Web Signer / Lacuna Web PKI.
 > correção pública. No GNU/Linux com Wayland, o problema é ainda mais grave,
 > porque a detecção padrão de DPI simplesmente não funciona.
 
-O BigCertificados resolve isso automaticamente no launcher do PJeOffice com uma
+O Big Advogados resolve isso automaticamente no launcher do PJeOffice com uma
 cadeia de detecção robusta:
 
 1. **XWayland auto-detect** — localiza o processo XWayland ativo e obtém
@@ -432,7 +432,7 @@ PJe Office (servidor local na porta 8801). Isso acontece porque o **Brave
 Shields** impede requisições cross-origin para `localhost` com certificado
 auto-assinado.
 
-O BigCertificados resolve isso automaticamente com um clique:
+O Big Advogados resolve isso automaticamente com um clique:
 
 1. **Desativa o Shields** nos domínios judiciais conhecidos (PJe, PROJUDI,
    e-SAJ, TST, TRT, TRF, CNJ) — escrito diretamente no `Preferences` JSON
@@ -441,7 +441,7 @@ O BigCertificados resolve isso automaticamente com um clique:
    `certutil`
 3. O PJe Office passa a ser detectado normalmente pelo Brave
 
-**Configuração manual (sem o BigCertificados):**
+**Configuração manual (sem o Big Advogados):**
 
 1. Abra o Brave e acesse `https://127.0.0.1:8801` — aceite o aviso de
    certificado
@@ -471,7 +471,7 @@ O banco de dados de tokens identifica automaticamente o dispositivo USB pelo
 
 ### Drivers PKCS#11 — Gerenciador integrado (`driver_database.py`)
 
-O BigCertificados inclui um gerenciador de 68 drivers com verificação de
+O Big Advogados inclui um gerenciador de 68 drivers com verificação de
 instalação em tempo real e instalação com um clique:
 
 **Pacotes essenciais (repositório oficial):**
@@ -754,7 +754,7 @@ cd big-advogados
 makepkg -si
 ```
 
-Após a instalação, o **BigCertificados** aparece automaticamente no menu de
+Após a instalação, o **Big Advogados** aparece automaticamente no menu de
 aplicativos do seu desktop (GNOME, KDE, XFCE, etc.). Não é necessário usar o
 terminal para abrir o app — basta clicar no ícone.
 
@@ -807,7 +807,7 @@ sudo usermod -aG plugdev $USER
 
 ## Configuração
 
-BigCertificados armazena dados seguindo a especificação **XDG Base Directory**:
+Big Advogados armazena dados seguindo a especificação **XDG Base Directory**:
 
 | Caminho | Descrição |
 |---------|-----------|
@@ -820,7 +820,7 @@ BigCertificados armazena dados seguindo a especificação **XDG Base Directory**
 
 ## Uso
 
-Abra o **BigCertificados** pelo menu de aplicativos ou via terminal:
+Abra o **Big Advogados** pelo menu de aplicativos ou via terminal:
 
 ```bash
 big-certificados
@@ -853,7 +853,7 @@ big-certificados
 
 ## Segurança
 
-O BigCertificados foi desenvolvido com segurança como prioridade:
+O Big Advogados foi desenvolvido com segurança como prioridade:
 
 | Prática | Implementação |
 |---------|--------------|

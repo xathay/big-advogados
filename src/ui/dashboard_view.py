@@ -29,7 +29,7 @@ class DashboardView(Adw.Bin):
         # Main StatusPage — no scroll, fills available space
         self._status_page = Adw.StatusPage()
         self._status_page.set_icon_name("channel-secure-symbolic")
-        self._status_page.set_title("BigCertificados")
+        self._status_page.set_title("Big Advogados")
         self._status_page.set_description(
             "Selecione uma opção na barra lateral para começar."
         )

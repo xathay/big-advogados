@@ -1,4 +1,4 @@
-"""BigCertificados — GtkApplication setup."""
+"""Big Advogados — GtkApplication setup."""
 
 from __future__ import annotations
 
@@ -140,12 +140,12 @@ class BigCertificadosApp(Adw.Application):
 
     def _on_about(self, *_args: object) -> None:
         about = Adw.AboutDialog()
-        about.set_application_name("BigCertificados")
+        about.set_application_name("Big Advogados")
         about.set_developer_name("BigLinux Team")
         about.set_version(CURRENT_VERSION)
         about.set_comments(
-            "Gerenciador completo de certificados digitais para "
-            "advogados e profissionais do Direito no GNU/Linux.\n\n"
+            "Stack jurídica completa para advogados brasileiros no GNU/Linux — "
+            "certificados digitais, assinatura, WebSigner e acesso a tribunais.\n\n"
             "Recursos:\n"
             "• Certificados A3 via token USB (PKCS#11)\n"
             "• Certificados A1 (PFX/P12)\n"
