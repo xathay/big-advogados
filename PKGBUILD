@@ -1,7 +1,7 @@
 # Maintainer: Leonardo Athayde <leoathayde@gmail.com>
 pkgname=big-certificados
 pkgver=1.2.0
-pkgrel=3
+pkgrel=4
 pkgdesc="Stack jurídica para advogados brasileiros — certificados digitais, assinatura, WebSigner e acesso a tribunais"
 arch=('any')
 url="https://github.com/xathay/big-advogados"
