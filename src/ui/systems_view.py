@@ -614,7 +614,7 @@ class SystemsView(Adw.Bin):
         confirm.set_heading("Remover PJeOffice Pro?")
         confirm.set_body(
             "O PJeOffice Pro será removido completamente do sistema.\n"
-            "Você poderá reinstalá-lo a qualquer momento pelo BigCertificados."
+            "Você poderá reinstalá-lo a qualquer momento pelo Big Advogados."
         )
         confirm.add_response("cancel", "Cancelar")
         confirm.add_response("remove", "Remover")

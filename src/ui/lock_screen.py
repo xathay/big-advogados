@@ -24,7 +24,7 @@ class LockDialog(Adw.Dialog):
         self._unlock_btn: Gtk.Button | None = None
         self._lockout_timer_id: int = 0
 
-        self.set_title("BigCertificados")
+        self.set_title("Big Advogados")
         self.set_content_width(400)
         self.set_content_height(480)
         self.set_can_close(False)

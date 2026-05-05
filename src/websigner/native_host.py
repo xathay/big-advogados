@@ -341,13 +341,13 @@ def _ask_password(pfx_path: str) -> Optional[str]:
     for cmd in [
         [
             "zenity", "--password",
-            "--title=BigCertificados — Senha do Certificado",
+            "--title=Big Advogados — Senha do Certificado",
             f"--text=Digite a senha do certificado:\n{filename}",
         ],
         [
             "kdialog", "--password",
-            f"BigCertificados — Senha do certificado:\n{filename}",
-            "--title", "BigCertificados",
+            f"Big Advogados — Senha do certificado:\n{filename}",
+            "--title", "Big Advogados",
         ],
     ]:
         try:
