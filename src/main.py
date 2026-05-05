@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""BigCertificados — Digital certificate manager for Brazilian lawyers."""
+"""Big Advogados — Legal stack for Brazilian lawyers."""
 
 import logging
 import os

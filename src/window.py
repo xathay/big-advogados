@@ -29,7 +29,7 @@ class MainWindow(Adw.ApplicationWindow):
     def __init__(self, application: Gtk.Application) -> None:
         super().__init__(application=application)
 
-        self.set_title("BigCertificados")
+        self.set_title("Big Advogados")
         self.set_default_size(800, 600)
         self.set_size_request(360, 400)
 
@@ -73,7 +73,7 @@ class MainWindow(Adw.ApplicationWindow):
 
         # Title (updated on sidebar selection)
         self._header_title = Adw.WindowTitle()
-        self._header_title.set_title("BigCertificados")
+        self._header_title.set_title("Big Advogados")
         header.set_title_widget(self._header_title)
 
         # Sidebar toggle button (visible only when collapsed)
@@ -292,7 +292,7 @@ class MainWindow(Adw.ApplicationWindow):
         status.set_title("Dependências do Sistema")
         status.set_description(
             "Verifique e instale os pacotes, módulos Python e serviços "
-            "necessários para o funcionamento completo do BigCertificados."
+            "necessários para o funcionamento completo do Big Advogados."
         )
         btn = Gtk.Button(label="Verificar Dependências")
         btn.add_css_class("suggested-action")
@@ -494,7 +494,7 @@ class MainWindow(Adw.ApplicationWindow):
             ("Verificar Dependências", "Checar pacotes necessários",
              "dialog-information-symbolic", "dependência pacote verificar checar",
              "app.check-deps"),
-            ("Sobre o BigCertificados", "Versão e informações do aplicativo",
+            ("Sobre o Big Advogados", "Versão e informações do aplicativo",
              "help-about-symbolic", "sobre versão about informação big",
              "app.about"),
         ]

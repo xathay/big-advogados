@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
-Name=BigCertificados
-GenericName=Gerenciador de Certificados Digitais
-Comment=Gerenciador de certificados A1 e A3 para advogados brasileiros
+Name=Big Advogados
+GenericName=Stack Jurídica para Advogados
+Comment=Certificados digitais, assinatura, WebSigner e acesso a tribunais para advogados brasileiros
 Exec=big-certificados
 Icon=bigcertificados
 Terminal=false
