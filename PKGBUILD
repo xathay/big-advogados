@@ -39,7 +39,7 @@ package() {
 
     # Install Python sources
     install -dm755 "${_appdir}"
-    cp -a "${srcdir}/../src" "${_appdir}/src"
+    cp -a "${startdir}/src" "${_appdir}/src"
 
     # Remove __pycache__
     find "${_appdir}" -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
@@ -54,30 +54,30 @@ EOF
     chmod 755 "${pkgdir}/usr/bin/${pkgname}"
 
     # Desktop entry
-    install -Dm644 "${srcdir}/../data/com.bigcertificados.desktop" \
+    install -Dm644 "${startdir}/data/com.bigcertificados.desktop" \
         "${pkgdir}/usr/share/applications/com.bigcertificados.desktop"
 
     # Icons
-    install -Dm644 "${srcdir}/../data/icons/bigcertificados.svg" \
+    install -Dm644 "${startdir}/data/icons/bigcertificados.svg" \
         "${pkgdir}/usr/share/icons/hicolor/scalable/apps/bigcertificados.svg"
-    install -Dm644 "${srcdir}/../data/icons/bigcertificados-symbolic.svg" \
+    install -Dm644 "${startdir}/data/icons/bigcertificados-symbolic.svg" \
         "${pkgdir}/usr/share/icons/hicolor/symbolic/apps/bigcertificados-symbolic.svg"
 
     # Udev rules
-    install -Dm644 "${srcdir}/../data/udev/70-crypto-tokens.rules" \
+    install -Dm644 "${startdir}/data/udev/70-crypto-tokens.rules" \
         "${pkgdir}/usr/lib/udev/rules.d/70-crypto-tokens.rules"
 
     # Helper scripts
-    install -Dm755 "${srcdir}/../scripts/install-pjeoffice-pro.sh" \
+    install -Dm755 "${startdir}/scripts/install-pjeoffice-pro.sh" \
         "${_appdir}/scripts/install-pjeoffice-pro.sh"
-    install -Dm755 "${srcdir}/../scripts/pjeoffice-install-helper.sh" \
+    install -Dm755 "${startdir}/scripts/pjeoffice-install-helper.sh" \
         "${_appdir}/scripts/pjeoffice-install-helper.sh"
-    install -Dm755 "${srcdir}/../scripts/pjeoffice-uninstall-helper.sh" \
+    install -Dm755 "${startdir}/scripts/pjeoffice-uninstall-helper.sh" \
         "${_appdir}/scripts/pjeoffice-uninstall-helper.sh"
-    install -Dm755 "${srcdir}/../scripts/pjeoffice-detect-uiscale.py" \
+    install -Dm755 "${startdir}/scripts/pjeoffice-detect-uiscale.py" \
         "${_appdir}/scripts/pjeoffice-detect-uiscale.py"
 
     # License
-    install -Dm644 "${srcdir}/../LICENSE" \
+    install -Dm644 "${startdir}/LICENSE" \
         "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE" 2>/dev/null || true
 }
