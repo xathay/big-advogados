@@ -495,19 +495,51 @@ def sign_data(thumbprint: str, data_b64: str, digest_algorithm: str) -> Optional
 # Command handlers
 # ---------------------------------------------------------------------------
 
-def import_pkcs12(request: dict) -> dict:
-    """Import a PKCS#12 file sent by the browser into NSS databases.
+def _ask_pfx_path() -> Optional[str]:
+    """Ask the user to pick a .pfx/.p12 file using zenity, falling back to kdialog."""
+    dialogs = [
+        [
+            "zenity", "--file-selection",
+            "--title=Big Advogados — Selecionar certificado (.pfx/.p12)",
+            "--file-filter=Certificados (*.pfx *.p12) | *.pfx *.p12",
+            "--file-filter=Todos os arquivos | *",
+        ],
+        [
+            "kdialog",
+            "--getopenfilename", str(Path.home()),
+            "Certificados (*.pfx *.p12)",
+            "--title", "Big Advogados — Selecionar certificado",
+        ],
+    ]
+    for cmd in dialogs:
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+            if result.returncode == 0:
+                path = result.stdout.strip()
+                return path if path else None
+            return None  # User cancelled
+        except FileNotFoundError:
+            continue
+    return None
 
-    Accepts the PFX as base64 under any of the common field names used by
-    Lacuna Web PKI / Softplan Web Signer (content/pkcs12/data/pfx). Saves a
-    copy under ``~/Nextcloud/Certificados Digitais (A1 e A3)`` so the rest
-    of the signing flow (``_find_pfx_path``) can reuse it, and runs
-    ``pk12util`` against every discovered NSS database so the browser sees
-    the certificate without a restart.
 
-    Returns ``{ok: bool, response|message, code?}`` for ``handle_command``
-    to forward to the extension.
+def import_pkcs12(request: Optional[dict]) -> dict:
+    """Import a PKCS#12 file into NSS databases.
+
+    The Softplan Web Signer popup just sends ``{command: "importPkcs12"}``
+    when the user clicks "Importar PFX" — the native host is expected to
+    drive its own file-picker + password prompt and then import the cert.
+
+    To stay compatible with callers that *do* hand us the PFX inline (Lacuna
+    Web PKI variants, automated scripts), we still accept a base64 payload
+    under the usual field names (content/pkcs12/data/pfx).
+
+    Saves a copy under ``~/Nextcloud/Certificados Digitais (A1 e A3)`` so
+    ``_find_pfx_path`` keeps working, and runs ``pk12util`` against every
+    discovered NSS database so the browser sees the cert without a restart.
     """
+    request = request or {}
+
     pkcs12_b64 = (
         request.get("content")
         or request.get("pkcs12")
@@ -517,15 +549,27 @@ def import_pkcs12(request: dict) -> dict:
     )
     password = request.get("password", "")
     cert_name = request.get("name") or request.get("nickname") or ""
+    pfx_path_from_dialog: Optional[str] = None
 
     if not pkcs12_b64:
-        log.warning("importPkcs12 missing content; keys=%s", list(request.keys()))
-        return {"ok": False, "message": "Missing pkcs12 content", "code": "missing_data"}
-
-    try:
-        pfx_bytes = b64decode(pkcs12_b64)
-    except Exception as exc:
-        return {"ok": False, "message": f"Invalid base64: {exc}", "code": "invalid_data"}
+        # No inline payload — drive a native file picker ourselves
+        pfx_path_from_dialog = _ask_pfx_path()
+        if not pfx_path_from_dialog:
+            log.info("importPkcs12 cancelled at file selection")
+            return {"ok": False, "message": "Importação cancelada", "code": "user_cancelled"}
+        try:
+            pfx_bytes = Path(pfx_path_from_dialog).read_bytes()
+        except Exception as exc:
+            return {"ok": False, "message": f"Could not read PFX: {exc}", "code": "read_error"}
+        if not password:
+            password = _ask_password(pfx_path_from_dialog) or ""
+        if not cert_name:
+            cert_name = Path(pfx_path_from_dialog).stem
+    else:
+        try:
+            pfx_bytes = b64decode(pkcs12_b64)
+        except Exception as exc:
+            return {"ok": False, "message": f"Invalid base64: {exc}", "code": "invalid_data"}
 
     # Validate the PFX (decrypt with password and extract subject)
     try:
@@ -624,7 +668,9 @@ def handle_command(message: dict) -> None:
     """Dispatch a command from the extension."""
     request_id = message.get("requestId", "")
     command = message.get("command", "")
-    request = message.get("request", {})
+    # Some callers (Softplan setup popup) send "request": null — coerce to {}
+    # so per-command .get(...) calls don't blow up.
+    request = message.get("request") or {}
 
     log.info("Command: %s (requestId=%s, domain=%s)", command, request_id, message.get("domain", "?"))
 
