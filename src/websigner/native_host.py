@@ -495,6 +495,131 @@ def sign_data(thumbprint: str, data_b64: str, digest_algorithm: str) -> Optional
 # Command handlers
 # ---------------------------------------------------------------------------
 
+def import_pkcs12(request: dict) -> dict:
+    """Import a PKCS#12 file sent by the browser into NSS databases.
+
+    Accepts the PFX as base64 under any of the common field names used by
+    Lacuna Web PKI / Softplan Web Signer (content/pkcs12/data/pfx). Saves a
+    copy under ``~/Nextcloud/Certificados Digitais (A1 e A3)`` so the rest
+    of the signing flow (``_find_pfx_path``) can reuse it, and runs
+    ``pk12util`` against every discovered NSS database so the browser sees
+    the certificate without a restart.
+
+    Returns ``{ok: bool, response|message, code?}`` for ``handle_command``
+    to forward to the extension.
+    """
+    pkcs12_b64 = (
+        request.get("content")
+        or request.get("pkcs12")
+        or request.get("data")
+        or request.get("pfx")
+        or ""
+    )
+    password = request.get("password", "")
+    cert_name = request.get("name") or request.get("nickname") or ""
+
+    if not pkcs12_b64:
+        log.warning("importPkcs12 missing content; keys=%s", list(request.keys()))
+        return {"ok": False, "message": "Missing pkcs12 content", "code": "missing_data"}
+
+    try:
+        pfx_bytes = b64decode(pkcs12_b64)
+    except Exception as exc:
+        return {"ok": False, "message": f"Invalid base64: {exc}", "code": "invalid_data"}
+
+    # Validate the PFX (decrypt with password and extract subject)
+    try:
+        from cryptography.hazmat.primitives.serialization import pkcs12 as pkcs12_lib
+        from cryptography.hazmat.primitives.serialization import Encoding
+        from cryptography.hazmat.primitives.hashes import Hash, SHA1
+        pwd_bytes = password.encode("utf-8") if password else None
+        _private_key, cert, _chain = pkcs12_lib.load_key_and_certificates(pfx_bytes, pwd_bytes)
+    except Exception as exc:
+        log.error("importPkcs12 PFX load failed: %s", exc)
+        return {"ok": False, "message": f"Invalid PFX or wrong password: {exc}", "code": "invalid_pfx"}
+
+    if cert is None:
+        return {"ok": False, "message": "PFX has no certificate", "code": "invalid_pfx"}
+
+    # Derive a filename from the certificate's Common Name when caller didn't provide one
+    if not cert_name:
+        try:
+            from cryptography.x509.oid import NameOID
+            cn_attrs = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
+            cert_name = cn_attrs[0].value if cn_attrs else "certificado"
+        except Exception:
+            cert_name = "certificado"
+    safe_name = "".join(c if c.isalnum() or c in "-_." else "_" for c in cert_name).strip("_") or "certificado"
+    if not safe_name.lower().endswith((".pfx", ".p12")):
+        safe_name = f"{safe_name}.pfx"
+
+    save_dir = Path.home() / "Nextcloud" / "Certificados Digitais (A1 e A3)"
+    try:
+        save_dir.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        save_dir = Path.home() / "Certificados"
+        save_dir.mkdir(parents=True, exist_ok=True)
+    save_path = save_dir / safe_name
+    save_path.write_bytes(pfx_bytes)
+    try:
+        save_path.chmod(0o600)
+    except Exception:
+        pass
+
+    # Remember the path for _find_pfx_path() to pick up immediately
+    config = load_config()
+    config["pfx_path"] = str(save_path)
+    save_config(config)
+
+    # Import into every NSS database we can find — browser shows cert without restart
+    imported = []
+    failed = []
+    for nss_path in find_nss_databases():
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".pfx", delete=False) as tf:
+                tf.write(pfx_bytes)
+                tmp_path = tf.name
+            cmd = ["pk12util", "-i", tmp_path, "-d", f"sql:{nss_path}", "-W", password, "-K", ""]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            Path(tmp_path).unlink(missing_ok=True)
+            if result.returncode == 0:
+                imported.append(str(nss_path))
+            else:
+                failed.append((str(nss_path), result.stderr.strip() or result.stdout.strip()))
+                log.warning("pk12util failed for %s: %s", nss_path, result.stderr.strip())
+        except FileNotFoundError:
+            return {"ok": False, "message": "pk12util not found (install nss package)", "code": "missing_tool"}
+        except Exception as exc:
+            failed.append((str(nss_path), str(exc)))
+            log.exception("pk12util crashed for %s", nss_path)
+
+    # SHA-1 thumbprint of the cert in DER form (matches what _extract_cert_from_nss returns)
+    der = cert.public_bytes(Encoding.DER)
+    h = Hash(SHA1())
+    h.update(der)
+    thumbprint = h.finalize().hex().upper()
+
+    try:
+        from cryptography.x509.oid import NameOID
+        cn = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
+        subject_name = cn[0].value if cn else cert.subject.rfc4514_string()
+    except Exception:
+        subject_name = ""
+
+    log.info("importPkcs12 ok: thumb=%s nss_imported=%d nss_failed=%d", thumbprint, len(imported), len(failed))
+
+    return {
+        "ok": True,
+        "response": {
+            "thumbprint": thumbprint,
+            "subjectName": subject_name,
+            "pfxPath": str(save_path),
+            "nssImported": imported,
+            "nssFailed": [path for path, _ in failed],
+        },
+    }
+
+
 def handle_command(message: dict) -> None:
     """Dispatch a command from the extension."""
     request_id = message.get("requestId", "")
@@ -586,6 +711,13 @@ def handle_command(message: dict) -> None:
                     return
                 signatures.append(sig)
             reply_success(request_id, signatures)
+
+        elif command == "importPkcs12":
+            result = import_pkcs12(request)
+            if result.get("ok"):
+                reply_success(request_id, result["response"])
+            else:
+                reply_error(request_id, result["message"], result.get("code", "import_error"))
 
         else:
             log.warning("Unknown command: %s", command)
