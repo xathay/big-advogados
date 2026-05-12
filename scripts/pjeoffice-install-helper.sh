@@ -30,26 +30,42 @@ rm -rf "${INSTALL_DIR}/jre"
 rm -f "${INSTALL_DIR}/LEIA-ME.TXT"
 rm -f "${INSTALL_DIR}/.gitignore"
 
+echo "LOG: Instalando detector HiDPI..."
+# The detector lives in the Big Advogados scripts dir (installed by the
+# package). Copy it next to the launcher so PJeOffice keeps working even
+# if the user later removes the big-certificados package.
+DETECTOR_SRC="/usr/lib/big-certificados/scripts/pjeoffice-detect-uiscale.py"
+if [[ -f "${DETECTOR_SRC}" ]]; then
+    install -Dm755 "${DETECTOR_SRC}" "${INSTALL_DIR}/pjeoffice-detect-uiscale.py"
+fi
+
 echo "LOG: Criando script de inicialização..."
 cat > "${INSTALL_DIR}/pjeoffice-pro.sh" << 'LAUNCHER'
 #!/bin/bash
-# Auto-detect HiDPI scale factor for Java Swing
+# PJeOffice Pro launcher — Big Advogados / BigCommunity edition.
+# Auto-detects the right `sun.java2d.uiScale` for Java Swing on Wayland +
+# fractional scaling + high-DPI panels (problem still unsolved on Windows).
+# The detection logic lives in pjeoffice-detect-uiscale.py and falls back
+# to 1.0 on any failure — never blocks startup.
+
 UI_SCALE="1"
-if command -v python3 &>/dev/null; then
-    DETECTED=$(python3 -c "
-import gi
-gi.require_version('Gdk', '4.0')
-from gi.repository import Gdk
-d = Gdk.Display.get_default()
-if d:
-    m = d.get_monitors()
-    if m.get_n_items() > 0:
-        print(m.get_item(0).get_scale_factor())
-    else:
-        print(1)
-else:
-    print(1)
-" 2>/dev/null)
+DETECTOR="$(dirname "$(readlink -f "$0")")/pjeoffice-detect-uiscale.py"
+
+# Fix XWayland env vars when launched from a Wayland session — otherwise
+# `xrdb` and other X11 helpers in the detector silently return nothing.
+if [[ -z "${DISPLAY:-}" || ! -e "${XAUTHORITY:-}" ]]; then
+    XW_PID=$(pgrep -x Xwayland 2>/dev/null | head -1)
+    if [[ -n "${XW_PID}" ]]; then
+        XW_ARGS=$(tr '\0' ' ' < "/proc/${XW_PID}/cmdline" 2>/dev/null)
+        XW_DISPLAY=$(echo "${XW_ARGS}" | grep -oE ':[0-9]+' | head -1)
+        XW_AUTH=$(echo "${XW_ARGS}" | grep -oE -- '-auth [^ ]+' | awk '{print $2}')
+        [[ -n "${XW_DISPLAY}" ]] && export DISPLAY="${XW_DISPLAY}"
+        [[ -f "${XW_AUTH}" ]] && export XAUTHORITY="${XW_AUTH}"
+    fi
+fi
+
+if [[ -x "${DETECTOR}" ]] && command -v python3 &>/dev/null; then
+    DETECTED=$(python3 "${DETECTOR}" 2>/dev/null)
     [[ -n "${DETECTED}" ]] && UI_SCALE="${DETECTED}"
 fi
 

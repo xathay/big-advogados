@@ -74,6 +74,8 @@ EOF
         "${_appdir}/scripts/pjeoffice-install-helper.sh"
     install -Dm755 "${srcdir}/../scripts/pjeoffice-uninstall-helper.sh" \
         "${_appdir}/scripts/pjeoffice-uninstall-helper.sh"
+    install -Dm755 "${srcdir}/../scripts/pjeoffice-detect-uiscale.py" \
+        "${_appdir}/scripts/pjeoffice-detect-uiscale.py"
 
     # License
     install -Dm644 "${srcdir}/../LICENSE" \
