@@ -330,6 +330,7 @@ class SystemsView(Adw.Bin):
     _SECTIONS = [
         ("judicial", "Sistemas Judiciais", "document-edit-symbolic"),
         ("pjeoffice", "PJeOffice Pro", "applications-office-symbolic"),
+        ("websigner", "WebSigner — e-SAJ", "security-high-symbolic"),
         ("drivers", "Drivers & Tokens", "dialog-password-symbolic"),
         ("browsers", "Navegadores", "web-browser-symbolic"),
     ]
@@ -374,6 +375,7 @@ class SystemsView(Adw.Bin):
 
         self._stack.add_named(self._build_judicial_page(), "judicial")
         self._stack.add_named(self._build_pjeoffice_page(), "pjeoffice")
+        self._stack.add_named(self._build_websigner_page(), "websigner")
         self._stack.add_named(self._build_drivers_page(), "drivers")
         self._stack.add_named(self._build_browsers_page(), "browsers")
 
@@ -553,6 +555,237 @@ class SystemsView(Adw.Bin):
 
         content.append(pjeoffice_group)
         return self._make_page(content)
+
+    def _build_websigner_page(self) -> Gtk.Widget:
+        content = self._page_box()
+
+        # ── Status group ──
+        status_group = Adw.PreferencesGroup()
+        status_group.set_title("WebSigner — Status")
+        status_group.set_description(
+            "Conector PKI do Big Advogados para sistemas eletrônicos "
+            "judiciais que usam Web Signer (e-SAJ TJSP, e outros)."
+        )
+
+        self._ws_host_row = Adw.ActionRow()
+        self._ws_host_row.set_icon_name("network-server-symbolic")
+        self._ws_host_status_icon: Optional[Gtk.Image] = None
+        status_group.add(self._ws_host_row)
+
+        self._ws_bridge_row = Adw.ActionRow()
+        self._ws_bridge_row.set_icon_name("emblem-shared-symbolic")
+        self._ws_bridge_status_icon: Optional[Gtk.Image] = None
+        status_group.add(self._ws_bridge_row)
+
+        content.append(status_group)
+
+        # ── Certificate group ──
+        cert_group = Adw.PreferencesGroup()
+        cert_group.set_title("Certificado A1")
+        cert_group.set_description(
+            "Caminho do arquivo .p12 / .pfx que o conector usa para assinar."
+        )
+
+        self._ws_pfx_row = Adw.ActionRow()
+        self._ws_pfx_row.set_title("Certificado A1 (.p12)")
+        self._ws_pfx_row.set_icon_name("application-certificate-symbolic")
+        self._ws_pfx_row.set_activatable(True)
+        self._ws_pfx_row.connect("activated", self._on_select_pfx)
+        arrow_pfx = Gtk.Image.new_from_icon_name("go-next-symbolic")
+        self._ws_pfx_row.add_suffix(arrow_pfx)
+        cert_group.add(self._ws_pfx_row)
+
+        content.append(cert_group)
+
+        # ── Setup action ──
+        setup_group = Adw.PreferencesGroup()
+
+        self._ws_setup_row = Adw.ActionRow()
+        self._ws_setup_row.set_title("Configurar / Reinstalar")
+        self._ws_setup_row.set_subtitle(
+            "Registra o conector PKI e instala a ponte WebPKI nos perfis Firefox"
+        )
+        self._ws_setup_row.set_icon_name("emblem-system-symbolic")
+        self._ws_setup_row.set_activatable(True)
+        self._ws_setup_row.connect("activated", self._on_configure_websigner)
+        arrow_setup = Gtk.Image.new_from_icon_name("go-next-symbolic")
+        self._ws_setup_row.add_suffix(arrow_setup)
+        setup_group.add(self._ws_setup_row)
+
+        content.append(setup_group)
+
+        # ── Info group ──
+        info_group = Adw.PreferencesGroup()
+        info_group.set_title("Próximos passos no Firefox")
+        info_group.set_description(
+            "Após configurar, instale a extensão oficial Web Signer (Mozilla AMO) "
+            "no Firefox ESR. Em Firefox release a extensão da ponte não persiste "
+            "entre reinícios."
+        )
+
+        amo_row = Adw.ActionRow()
+        amo_row.set_title("Instalar extensão Web Signer (Mozilla AMO)")
+        amo_row.set_subtitle("addons.mozilla.org/firefox/addon/websigner/")
+        amo_row.set_icon_name("web-browser-symbolic")
+        amo_row.set_activatable(True)
+        amo_row.connect(
+            "activated",
+            self._on_system_clicked,
+            "https://addons.mozilla.org/firefox/addon/websigner/",
+        )
+        arrow_amo = Gtk.Image.new_from_icon_name("go-next-symbolic")
+        amo_row.add_suffix(arrow_amo)
+        info_group.add(amo_row)
+
+        esaj_row = Adw.ActionRow()
+        esaj_row.set_title("Abrir e-SAJ TJSP (login)")
+        esaj_row.set_subtitle("esaj.tjsp.jus.br/sajcas/login")
+        esaj_row.set_icon_name("system-search-symbolic")
+        esaj_row.set_activatable(True)
+        esaj_row.connect(
+            "activated",
+            self._on_system_clicked,
+            "https://esaj.tjsp.jus.br/sajcas/login",
+        )
+        arrow_esaj = Gtk.Image.new_from_icon_name("go-next-symbolic")
+        esaj_row.add_suffix(arrow_esaj)
+        info_group.add(esaj_row)
+
+        content.append(info_group)
+
+        self._refresh_websigner_status()
+        return self._make_page(content)
+
+    def _refresh_websigner_status(self) -> None:
+        """Update the WebSigner page status rows from current state."""
+        from src.websigner import installer
+
+        status = installer.check_installation_status()
+
+        # Host row
+        if self._ws_host_status_icon is not None:
+            self._ws_host_row.remove(self._ws_host_status_icon)
+            self._ws_host_status_icon = None
+
+        manifest_count = len(status.get("manifest_paths") or [])
+        if status.get("installed") and status.get("bigcertificados_host"):
+            self._ws_host_row.set_title(
+                f"Conector PKI registrado em {manifest_count} navegador(es)"
+            )
+            self._ws_host_row.set_subtitle("Pronto para responder ao Web Signer")
+            host_icon = Gtk.Image.new_from_icon_name("emblem-ok-symbolic")
+            host_icon.add_css_class("success")
+        elif manifest_count > 0:
+            self._ws_host_row.set_title("Conector PKI registrado, mas binário ausente")
+            self._ws_host_row.set_subtitle("Reinstale para corrigir")
+            host_icon = Gtk.Image.new_from_icon_name("dialog-warning-symbolic")
+            host_icon.add_css_class("warning")
+        else:
+            self._ws_host_row.set_title("Conector PKI não registrado")
+            self._ws_host_row.set_subtitle("Clique em 'Configurar / Reinstalar'")
+            host_icon = Gtk.Image.new_from_icon_name("dialog-warning-symbolic")
+            host_icon.add_css_class("warning")
+        self._ws_host_status_icon = host_icon
+        self._ws_host_row.add_suffix(host_icon)
+
+        # Bridge row
+        if self._ws_bridge_status_icon is not None:
+            self._ws_bridge_row.remove(self._ws_bridge_status_icon)
+            self._ws_bridge_status_icon = None
+
+        if status.get("bridge_installed"):
+            self._ws_bridge_row.set_title("Ponte WebPKI instalada nos perfis Firefox")
+            self._ws_bridge_row.set_subtitle(
+                "Necessária para a página de peticionamento (Lacuna Web PKI)"
+            )
+            bridge_icon = Gtk.Image.new_from_icon_name("emblem-ok-symbolic")
+            bridge_icon.add_css_class("success")
+        else:
+            self._ws_bridge_row.set_title("Ponte WebPKI não instalada")
+            self._ws_bridge_row.set_subtitle(
+                "Abra o Firefox uma vez e clique em 'Configurar / Reinstalar'"
+            )
+            bridge_icon = Gtk.Image.new_from_icon_name("dialog-warning-symbolic")
+            bridge_icon.add_css_class("warning")
+        self._ws_bridge_status_icon = bridge_icon
+        self._ws_bridge_row.add_suffix(bridge_icon)
+
+        # PFX path
+        pfx_path = self._get_websigner_pfx_path()
+        if pfx_path and Path(pfx_path).is_file():
+            self._ws_pfx_row.set_subtitle(pfx_path)
+        elif pfx_path:
+            self._ws_pfx_row.set_subtitle(
+                f"Arquivo não encontrado: {pfx_path}"
+            )
+        else:
+            self._ws_pfx_row.set_subtitle("Não configurado — clique para selecionar")
+
+    @staticmethod
+    def _get_websigner_pfx_path() -> Optional[str]:
+        """Read the configured PFX path from websigner.json."""
+        import json
+        config_path = (
+            Path.home() / ".local" / "share" / "big-certificados" / "websigner.json"
+        )
+        if not config_path.is_file():
+            return None
+        try:
+            data = json.loads(config_path.read_text())
+            return data.get("pfx_path")
+        except Exception:
+            return None
+
+    def _on_select_pfx(self, _row: Adw.ActionRow) -> None:
+        """Open file chooser to pick the .p12 / .pfx certificate."""
+        dialog = Gtk.FileDialog()
+        dialog.set_title("Selecionar certificado A1 (.p12 / .pfx)")
+
+        pkcs12_filter = Gtk.FileFilter()
+        pkcs12_filter.set_name("Certificado A1 (.p12, .pfx)")
+        pkcs12_filter.add_pattern("*.p12")
+        pkcs12_filter.add_pattern("*.pfx")
+        pkcs12_filter.add_pattern("*.P12")
+        pkcs12_filter.add_pattern("*.PFX")
+
+        all_filter = Gtk.FileFilter()
+        all_filter.set_name("Todos os arquivos")
+        all_filter.add_pattern("*")
+
+        store = Gio.ListStore.new(Gtk.FileFilter)
+        store.append(pkcs12_filter)
+        store.append(all_filter)
+        dialog.set_filters(store)
+        dialog.set_default_filter(pkcs12_filter)
+
+        window = self.get_root()
+        dialog.open(window, None, self._on_pfx_selected)
+
+    def _on_pfx_selected(
+        self, dialog: Gtk.FileDialog, result: Gio.AsyncResult,
+    ) -> None:
+        try:
+            file = dialog.open_finish(result)
+        except GLib.Error:
+            return  # cancelled
+        if file is None:
+            return
+        path = file.get_path()
+        if not path:
+            return
+
+        from src.websigner import installer
+        ok = installer.configure_pfx_path(path)
+        if ok:
+            self._refresh_websigner_status()
+
+    def _on_configure_websigner(self, _row: Adw.ActionRow) -> None:
+        """Open the WebSigner setup dialog."""
+        from src.ui.websigner_installer import WebSignerSetupDialog
+
+        dialog = WebSignerSetupDialog(on_finished=self._refresh_websigner_status)
+        window = self.get_root()
+        dialog.present(window)
 
     def _build_drivers_page(self) -> Gtk.Widget:
         content = self._page_box()
