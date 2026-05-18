@@ -916,6 +916,18 @@ python -m src.main
 
 ## Changelog
 
+### v1.2.1 (2026-05-18)
+
+**Correção de detecção do token G&D StarSign CUT S:**
+- VID:PID corrigido de `04E6:5816` (vendor SCM Microsystems, incorreto) para
+  `1059:0019` (vendor oficial Giesecke & Devrient) em `token_database.py`
+- Regra udev adicionada em `data/udev/70-crypto-tokens.rules` para o VID:PID correto
+- Sintoma observado: `pcsc_scan` reconhecia o leitor + ATR do cartão, mas o app
+  exibia "Nenhum token detectado" porque a varredura `pyudev` filtra por VID:PID
+  presentes no catálogo
+- Reportado por Filipe de Almeida no CachyOS — primeiro caso conhecido do modelo
+- Detalhes completos em [`docs/incidentes.md`](docs/incidentes.md)
+
 ### v1.2.0 (2026-04-16)
 
 **WebSigner — Assinatura digital no navegador:**
