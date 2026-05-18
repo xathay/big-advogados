@@ -47,8 +47,12 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="096e", ATTR{idProduct}=="0854", MODE="0660", 
 SUBSYSTEM=="usb", ATTR{idVendor}=="04b9", ATTR{idProduct}=="0300", MODE="0660", GROUP="plugdev", TAG+="uaccess"
 
 # ── GD Burti ──
-# StarSign CUT S
+# StarSign CUT S (variante 04e6:5816)
 SUBSYSTEM=="usb", ATTR{idVendor}=="04e6", ATTR{idProduct}=="5816", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+
+# ── Giesecke & Devrient ──
+# StarSign CUT S (vendor oficial G&D, 1059:0019)
+SUBSYSTEM=="usb", ATTR{idVendor}=="1059", ATTR{idProduct}=="0019", MODE="0660", GROUP="plugdev", TAG+="uaccess"
 
 # ── Bit4id ──
 # miniLector EVO, Digital-DNA Key

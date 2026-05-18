@@ -524,13 +524,15 @@ _TOKEN_LIST: list[TokenInfo] = [
 
     # ── G&D (Giesecke+Devrient) ──────────────────────────────────────
     TokenInfo(
-        vendor="G&D", model="StarSign CUT Token",
-        vid=0x04E6, pid=0x5816,
+        vendor="G&D", model="StarSign CUT S",
+        vid=0x1059, pid=0x0019,
         pkcs11_module="libstarsignpkcs11.so",
         search_paths=(
             "/usr/lib/libstarsignpkcs11.so",
+            "/usr/lib64/libstarsignpkcs11.so",
+            "/usr/lib/pkcs11/libstarsignpkcs11.so",
         ),
-        description="Token G&D StarSign CUT",
+        description="Token G&D StarSign CUT S (USB vendor 1059)",
     ),
 
     # ── Valid Certificadora ───────────────────────────────────────────
