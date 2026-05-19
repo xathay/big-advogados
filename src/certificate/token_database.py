@@ -513,28 +513,28 @@ _TOKEN_LIST: list[TokenInfo] = [
     TokenInfo(
         vendor="AET Europe", model="SafeSign Token",
         vid=0x0000, pid=0x0000,  # Uses smartcard via reader
-        pkcs11_module="libaetpkcs11.so",
+        pkcs11_module="libaetpkss.so",
         search_paths=(
-            "/usr/lib/libaetpkcs11.so",
-            "/usr/lib64/libaetpkcs11.so",
-            "/usr/lib/x86_64-linux-gnu/libaetpkcs11.so",
+            "/usr/lib/libaetpkss.so",
+            "/usr/lib64/libaetpkss.so",
+            "/usr/lib/x86_64-linux-gnu/libaetpkss.so",
         ),
         description="Middleware SafeSign para smartcards ICP-Brasil",
     ),
 
     # ── G&D (Giesecke+Devrient) ──────────────────────────────────────
     # O G&D StarSign CUT é, na prática, dirigido pelo SafeSign Identity
-    # Client (libaetpkcs11.so) — é o que as ACs brasileiras (Soluti,
+    # Client (libaetpkss.so) — é o que as ACs brasileiras (Soluti,
     # Valid, Certisign, Serasa) distribuem. libstarsignpkcs11.so existe
     # mas é raro fora de ambiente corporativo.
     TokenInfo(
         vendor="G&D", model="StarSign CUT",
         vid=0x1059, pid=0x0017,
-        pkcs11_module="libaetpkcs11.so",
+        pkcs11_module="libaetpkss.so",
         search_paths=(
-            "/usr/lib/libaetpkcs11.so",
-            "/usr/lib64/libaetpkcs11.so",
-            "/usr/lib/x86_64-linux-gnu/libaetpkcs11.so",
+            "/usr/lib/libaetpkss.so",
+            "/usr/lib64/libaetpkss.so",
+            "/usr/lib/x86_64-linux-gnu/libaetpkss.so",
             "/usr/lib/libstarsignpkcs11.so",
             "/usr/lib64/libstarsignpkcs11.so",
         ),
@@ -543,11 +543,11 @@ _TOKEN_LIST: list[TokenInfo] = [
     TokenInfo(
         vendor="G&D", model="StarSign CUT S",
         vid=0x1059, pid=0x0019,
-        pkcs11_module="libaetpkcs11.so",
+        pkcs11_module="libaetpkss.so",
         search_paths=(
-            "/usr/lib/libaetpkcs11.so",
-            "/usr/lib64/libaetpkcs11.so",
-            "/usr/lib/x86_64-linux-gnu/libaetpkcs11.so",
+            "/usr/lib/libaetpkss.so",
+            "/usr/lib64/libaetpkss.so",
+            "/usr/lib/x86_64-linux-gnu/libaetpkss.so",
             "/usr/lib/libstarsignpkcs11.so",
             "/usr/lib64/libstarsignpkcs11.so",
         ),
@@ -708,7 +708,7 @@ _MODULE_TO_PACKAGE: dict[str, str] = {
     "libbit4xpki.so": "opensc",
     "libASEP11.so": "opensc",
     "opensc-pkcs11.so": "opensc",
-    "libaetpkcs11.so": "safesignidentityclient",
+    "libaetpkss.so": "safesignidentityclient",
     "libstarsignpkcs11.so": "safesignidentityclient",
     "libkNET_pkcs11.so": "opensc",
 }
