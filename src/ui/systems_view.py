@@ -577,17 +577,24 @@ class SystemsView(Adw.Bin):
         self._ws_bridge_status_icon: Optional[Gtk.Image] = None
         status_group.add(self._ws_bridge_row)
 
+        self._ws_token_row = Adw.ActionRow()
+        self._ws_token_row.set_icon_name("media-flash-symbolic")
+        self._ws_token_status_icon: Optional[Gtk.Image] = None
+        status_group.add(self._ws_token_row)
+
         content.append(status_group)
 
         # ── Certificate group ──
         cert_group = Adw.PreferencesGroup()
-        cert_group.set_title("Certificado A1")
+        cert_group.set_title("Certificados")
         cert_group.set_description(
-            "Caminho do arquivo .p12 / .pfx que o conector usa para assinar."
+            "Token A3 (USB) é reconhecido automaticamente quando plugado. "
+            "Certificado A1 (arquivo .p12) só precisa configurar se for assinar "
+            "sem token."
         )
 
         self._ws_pfx_row = Adw.ActionRow()
-        self._ws_pfx_row.set_title("Certificado A1 (.p12)")
+        self._ws_pfx_row.set_title("Certificado A1 (.p12) — opcional")
         self._ws_pfx_row.set_icon_name("application-certificate-symbolic")
         self._ws_pfx_row.set_activatable(True)
         self._ws_pfx_row.connect("activated", self._on_select_pfx)
@@ -603,7 +610,7 @@ class SystemsView(Adw.Bin):
         self._ws_setup_row = Adw.ActionRow()
         self._ws_setup_row.set_title("Configurar / Reinstalar")
         self._ws_setup_row.set_subtitle(
-            "Registra o conector PKI e instala a ponte WebPKI nos perfis Firefox"
+            "Habilita a assinatura digital no Firefox para o e-SAJ TJSP"
         )
         self._ws_setup_row.set_icon_name("emblem-system-symbolic")
         self._ws_setup_row.set_activatable(True)
@@ -616,26 +623,13 @@ class SystemsView(Adw.Bin):
 
         # ── Info group ──
         info_group = Adw.PreferencesGroup()
-        info_group.set_title("Próximos passos no Firefox")
+        info_group.set_title("Próximos passos")
         info_group.set_description(
-            "Após configurar, instale a extensão oficial Web Signer (Mozilla AMO) "
-            "no Firefox ESR. Em Firefox release a extensão da ponte não persiste "
-            "entre reinícios."
+            "Plugue o token (se for usar), abra o e-SAJ abaixo e faça login "
+            "com seu certificado. Ao reiniciar o Firefox (versão normal), "
+            "rode \"Configurar / Reinstalar\" outra vez — a ponte é perdida. "
+            "Para evitar esse passo extra, use o Firefox ESR."
         )
-
-        amo_row = Adw.ActionRow()
-        amo_row.set_title("Instalar extensão Web Signer (Mozilla AMO)")
-        amo_row.set_subtitle("addons.mozilla.org/firefox/addon/websigner/")
-        amo_row.set_icon_name("web-browser-symbolic")
-        amo_row.set_activatable(True)
-        amo_row.connect(
-            "activated",
-            self._on_system_clicked,
-            "https://addons.mozilla.org/firefox/addon/websigner/",
-        )
-        arrow_amo = Gtk.Image.new_from_icon_name("go-next-symbolic")
-        amo_row.add_suffix(arrow_amo)
-        info_group.add(amo_row)
 
         esaj_row = Adw.ActionRow()
         esaj_row.set_title("Abrir e-SAJ TJSP (login)")
@@ -669,8 +663,9 @@ class SystemsView(Adw.Bin):
 
         manifest_count = len(status.get("manifest_paths") or [])
         if status.get("installed") and status.get("bigcertificados_host"):
+            navegador_word = "navegador" if manifest_count == 1 else "navegadores"
             self._ws_host_row.set_title(
-                f"Conector PKI registrado em {manifest_count} navegador(es)"
+                f"Conector PKI registrado em {manifest_count} {navegador_word}"
             )
             self._ws_host_row.set_subtitle("Pronto para responder ao Web Signer")
             host_icon = Gtk.Image.new_from_icon_name("emblem-ok-symbolic")
@@ -696,7 +691,7 @@ class SystemsView(Adw.Bin):
         if status.get("bridge_installed"):
             self._ws_bridge_row.set_title("Ponte WebPKI instalada nos perfis Firefox")
             self._ws_bridge_row.set_subtitle(
-                "Necessária para a página de peticionamento (Lacuna Web PKI)"
+                "Permite que o e-SAJ chame a assinatura digital pelo Firefox"
             )
             bridge_icon = Gtk.Image.new_from_icon_name("emblem-ok-symbolic")
             bridge_icon.add_css_class("success")
@@ -709,6 +704,40 @@ class SystemsView(Adw.Bin):
             bridge_icon.add_css_class("warning")
         self._ws_bridge_status_icon = bridge_icon
         self._ws_bridge_row.add_suffix(bridge_icon)
+
+        # Token A3 row — scans USB devices against TokenDatabase.
+        if self._ws_token_status_icon is not None:
+            self._ws_token_row.remove(self._ws_token_status_icon)
+            self._ws_token_status_icon = None
+
+        try:
+            from src.certificate.token_database import TokenDatabase
+            from src.utils.udev_monitor import UdevMonitor
+
+            token_db = TokenDatabase()
+            found = UdevMonitor(token_db).scan_existing()
+        except Exception:
+            found = []
+
+        if found:
+            vid, pid, _devnode = found[0]
+            tokens = token_db.lookup_by_usb(vid, pid)
+            name = f"{tokens[0].vendor} {tokens[0].model}" if tokens else f"{vid:04x}:{pid:04x}"
+            extra = f" (+{len(found) - 1})" if len(found) > 1 else ""
+            self._ws_token_row.set_title(f"Token A3 detectado: {name}{extra}")
+            self._ws_token_row.set_subtitle(
+                "Pronto para assinar — o e-SAJ vai pedir o PIN ao confirmar"
+            )
+            token_icon = Gtk.Image.new_from_icon_name("emblem-ok-symbolic")
+            token_icon.add_css_class("success")
+        else:
+            self._ws_token_row.set_title("Nenhum token A3 conectado")
+            self._ws_token_row.set_subtitle(
+                "Plugue o token USB ou use um certificado A1 (.p12)"
+            )
+            token_icon = Gtk.Image.new_from_icon_name("dialog-information-symbolic")
+        self._ws_token_status_icon = token_icon
+        self._ws_token_row.add_suffix(token_icon)
 
         # PFX path
         pfx_path = self._get_websigner_pfx_path()

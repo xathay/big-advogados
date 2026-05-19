@@ -46,11 +46,12 @@ class WebSignerSetupDialog(Adw.Dialog):
 
         info = Gtk.Label(
             label=(
-                "Registra o conector PKI do Big Advogados para Firefox, "
-                "Chrome, Chromium e Brave, e instala a ponte WebPKI nos "
-                "perfis do Firefox.\n\n"
-                "Para uso permanente em peticionamento, recomendado Firefox ESR "
-                "+ extensão Web Signer da Mozilla AMO."
+                "Configura seu navegador para assinar petições no e-SAJ TJSP "
+                "com certificado digital.\n\n"
+                "Funciona com token A3 (USB, reconhecido automaticamente quando "
+                "plugado) ou certificado A1 (arquivo .p12). Em Firefox versão "
+                "normal, esta configuração precisa ser refeita após reiniciar "
+                "o navegador — use Firefox ESR para evitar isso."
             )
         )
         info.add_css_class("dim-label")
@@ -79,6 +80,13 @@ class WebSignerSetupDialog(Adw.Dialog):
         self._log_view.set_left_margin(8)
         self._log_view.set_right_margin(8)
         self._log_buffer = self._log_view.get_buffer()
+        # Pre-fill with a hint so the empty box doesn't look orphaned.
+        self._log_buffer.set_text(
+            "Clique em 'Configurar' para registrar o Big Advogados como "
+            "conector de assinatura nos navegadores instalados e instalar a "
+            "ponte WebPKI nos perfis Firefox detectados.\n\n"
+            "O progresso aparecerá aqui."
+        )
 
         log_scroll.set_child(self._log_view)
         log_frame.set_child(log_scroll)
@@ -121,6 +129,7 @@ class WebSignerSetupDialog(Adw.Dialog):
     def _on_run(self, _btn: Gtk.Button) -> None:
         self._run_btn.set_sensitive(False)
         self._run_btn.set_label("Configurando…")
+        self._log_buffer.set_text("")  # Clear the pre-flight hint
         threading.Thread(target=self._run_thread, daemon=True).start()
 
     def _run_thread(self) -> None:
@@ -153,12 +162,16 @@ class WebSignerSetupDialog(Adw.Dialog):
             self._log_append("═══════════════════════════════════════════")
             self._log_append("  Configuração concluída")
             self._log_append("")
-            self._log_append("  Próximos passos manuais:")
-            self._log_append("  1. Abrir Firefox ESR")
-            self._log_append("  2. Instalar extensão oficial Web Signer:")
-            self._log_append("     https://addons.mozilla.org/firefox/addon/websigner/")
-            self._log_append("  3. Configurar o caminho do certificado A1 (.p12)")
-            self._log_append("     na seção WebSigner — e-SAJ")
+            self._log_append("  Próximos passos:")
+            self._log_append("  1. Plugue o token A3 (USB), se for usar")
+            self._log_append("     — reconhecido automaticamente")
+            self._log_append("  2. Ou configure o A1 (.p12) na seção")
+            self._log_append("     'Certificados' do painel")
+            self._log_append("  3. Abra o e-SAJ TJSP e faça login")
+            self._log_append("")
+            self._log_append("  Em Firefox versão normal, refaça esta tela")
+            self._log_append("  após reiniciar o navegador (use Firefox ESR")
+            self._log_append("  para evitar esse passo extra).")
             self._log_append("═══════════════════════════════════════════")
 
             self._set_status("Configuração concluída")
