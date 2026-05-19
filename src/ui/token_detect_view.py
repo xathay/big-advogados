@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import logging
-import subprocess
-import threading
 from typing import Optional
 
 import gi
@@ -13,6 +11,8 @@ gi.require_version("Adw", "1")
 from gi.repository import Gtk, Adw, GLib, GObject, Pango  # noqa: E402
 
 from src.certificate.token_database import TokenDatabase, TokenInfo
+from src.drivers import DriverCatalog, DriverSpec
+from src.ui.driver_install_dialog import DriverInstallDialog
 
 log = logging.getLogger(__name__)
 
@@ -24,10 +24,15 @@ class TokenDetectView(Gtk.ScrolledWindow):
         "scan-requested": (GObject.SignalFlags.RUN_LAST, None, ()),
     }
 
-    def __init__(self, token_db: TokenDatabase) -> None:
+    def __init__(
+        self,
+        token_db: TokenDatabase,
+        driver_catalog: Optional[DriverCatalog] = None,
+    ) -> None:
         super().__init__()
         self.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         self._token_db = token_db
+        self._driver_catalog = driver_catalog or DriverCatalog()
         self._token_rows: dict[str, Adw.ActionRow] = {}
 
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
@@ -102,14 +107,14 @@ class TokenDetectView(Gtk.ScrolledWindow):
         row.set_icon_name(icon)
         row.set_activatable(True)
 
-        # Module status indicator. We distinguish three cases:
-        #   1. Vendor-specific driver installed → green "Módulo OK".
-        #   2. Only OpenSC fallback available → yellow warning suggesting
-        #      the vendor package (OpenSC rarely works for ICP-Brasil
-        #      tokens; promising "OK" here misleads the user).
-        #   3. No module at all → red error.
+        # Status do módulo do token:
+        #   1. Driver vendor presente → verde "Módulo OK"
+        #   2. Driver disponível no catálogo big-drivers → amarelo "Driver
+        #      disponível" + botão de instalação (abre DriverInstallDialog)
+        #   3. Sem driver nem entrada no catálogo → vermelho "Módulo não
+        #      encontrado"
         vendor_module = self._token_db.find_vendor_pkcs11_library(vid, pid)
-        pkg = self._token_db.suggest_package(vid, pid)
+        spec = self._driver_catalog.for_token(vid, pid) if not vendor_module else None
         if vendor_module:
             status_label = Gtk.Label(label="Módulo OK")
             status_label.add_css_class("success")
@@ -117,17 +122,17 @@ class TokenDetectView(Gtk.ScrolledWindow):
 
             arrow = Gtk.Image.new_from_icon_name("go-next-symbolic")
             row.add_suffix(arrow)
-        elif pkg:
-            status_label = Gtk.Label(label=f"Driver: {pkg}")
+        elif spec is not None:
+            status_label = Gtk.Label(label="Driver disponível")
             status_label.add_css_class("warning")
             row.add_suffix(status_label)
 
             install_btn = Gtk.Button()
             install_btn.set_icon_name("software-install-symbolic")
-            install_btn.set_tooltip_text(f"Instalar {pkg}")
+            install_btn.set_tooltip_text(f"Instalar {spec.product}")
             install_btn.set_valign(Gtk.Align.CENTER)
             install_btn.add_css_class("flat")
-            install_btn.connect("clicked", self._on_install_driver, pkg, row)
+            install_btn.connect("clicked", self._on_install_driver, spec, row)
             row.add_suffix(install_btn)
         else:
             status_label = Gtk.Label(label="Módulo não encontrado")
@@ -158,38 +163,20 @@ class TokenDetectView(Gtk.ScrolledWindow):
         self._status_page.set_visible(True)
 
     def _on_install_driver(
-        self, _btn: Gtk.Button, package: str, row: Adw.ActionRow,
+        self, _btn: Gtk.Button, spec: DriverSpec, row: Adw.ActionRow,
     ) -> None:
-        """Suggest driver installation via terminal (yay/pacman)."""
-        _btn.set_sensitive(False)
+        """Abre o DriverInstallDialog com o spec correspondente."""
+        dialog = DriverInstallDialog(
+            spec,
+            on_done=lambda success: self._on_driver_installed(success, row, spec),
+        )
+        dialog.present(self.get_root())
 
-        # Determine if it's an AUR or pacman package
-        is_pacman = package == "opensc"
-        if is_pacman:
-            cmd = ["pkexec", "pacman", "-S", "--noconfirm", package]
+    def _on_driver_installed(
+        self, success: bool, row: Adw.ActionRow, spec: DriverSpec,
+    ) -> None:
+        if success:
+            row.set_subtitle(f"✓ {spec.product} instalado — desconecte e reconecte o token")
+            log.info("Driver '%s' instalado", spec.id)
         else:
-            cmd = ["yay", "-S", "--noconfirm", package]
-
-        def install_thread() -> None:
-            try:
-                result = subprocess.run(
-                    cmd,
-                    capture_output=True, text=True, timeout=300,
-                )
-                GLib.idle_add(on_done, result.returncode == 0, result.stderr)
-            except Exception as exc:
-                GLib.idle_add(on_done, False, str(exc))
-
-        def on_done(success: bool, error: str) -> bool:
-            _btn.set_sensitive(True)
-            if success:
-                row.set_subtitle(f"✓ {package} instalado com sucesso — reconecte o token")
-                _btn.set_icon_name("emblem-ok-symbolic")
-                _btn.set_sensitive(False)
-                log.info("Driver package '%s' installed successfully", package)
-            else:
-                row.set_subtitle(f"Falha ao instalar {package}")
-                log.error("Failed to install %s: %s", package, error)
-            return False
-
-        threading.Thread(target=install_thread, daemon=True).start()
+            log.info("Instalacao de '%s' nao completou", spec.id)

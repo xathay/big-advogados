@@ -510,11 +510,16 @@ _TOKEN_LIST: list[TokenInfo] = [
     ),
 
     # ── AET Europe / SafeSign ─────────────────────────────────────────
+    # Search paths cobrem três origens de instalação:
+    #   • big-drivers (catálogo curado, /usr/local/lib/big-drivers/...)
+    #   • pacote AUR ou .deb nativo (/usr/lib/...)
+    #   • Fedora/RHEL e Debian/Ubuntu (lib64 e multiarch)
     TokenInfo(
         vendor="AET Europe", model="SafeSign Token",
         vid=0x0000, pid=0x0000,  # Uses smartcard via reader
         pkcs11_module="libaetpkss.so",
         search_paths=(
+            "/usr/local/lib/big-drivers/safesign/lib/libaetpkss.so",
             "/usr/lib/libaetpkss.so",
             "/usr/lib64/libaetpkss.so",
             "/usr/lib/x86_64-linux-gnu/libaetpkss.so",
@@ -525,18 +530,16 @@ _TOKEN_LIST: list[TokenInfo] = [
     # ── G&D (Giesecke+Devrient) ──────────────────────────────────────
     # O G&D StarSign CUT é, na prática, dirigido pelo SafeSign Identity
     # Client (libaetpkss.so) — é o que as ACs brasileiras (Soluti,
-    # Valid, Certisign, Serasa) distribuem. libstarsignpkcs11.so existe
-    # mas é raro fora de ambiente corporativo.
+    # Valid, Certisign, Serasa) distribuem.
     TokenInfo(
         vendor="G&D", model="StarSign CUT",
         vid=0x1059, pid=0x0017,
         pkcs11_module="libaetpkss.so",
         search_paths=(
+            "/usr/local/lib/big-drivers/safesign/lib/libaetpkss.so",
             "/usr/lib/libaetpkss.so",
             "/usr/lib64/libaetpkss.so",
             "/usr/lib/x86_64-linux-gnu/libaetpkss.so",
-            "/usr/lib/libstarsignpkcs11.so",
-            "/usr/lib64/libstarsignpkcs11.so",
         ),
         description="Token G&D StarSign CUT (USB 1059:0017)",
     ),
@@ -545,11 +548,10 @@ _TOKEN_LIST: list[TokenInfo] = [
         vid=0x1059, pid=0x0019,
         pkcs11_module="libaetpkss.so",
         search_paths=(
+            "/usr/local/lib/big-drivers/safesign/lib/libaetpkss.so",
             "/usr/lib/libaetpkss.so",
             "/usr/lib64/libaetpkss.so",
             "/usr/lib/x86_64-linux-gnu/libaetpkss.so",
-            "/usr/lib/libstarsignpkcs11.so",
-            "/usr/lib64/libstarsignpkcs11.so",
         ),
         description="Token G&D StarSign CUT S (USB 1059:0019)",
     ),

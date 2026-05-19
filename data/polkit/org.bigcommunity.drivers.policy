@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+
+<policyconfig>
+  <vendor>BigCommunity</vendor>
+  <vendor_url>https://www.biglinux.com.br/</vendor_url>
+  <icon_name>bigcertificados</icon_name>
+
+  <action id="org.bigcommunity.drivers.install">
+    <description>Instalar driver de hardware do fabricante</description>
+    <description xml:lang="pt_BR">Instalar driver de hardware do fabricante</description>
+    <description xml:lang="en">Install hardware driver from manufacturer</description>
+    <message>Autenticação necessária para instalar um driver PKCS#11 fornecido pelo fabricante.</message>
+    <message xml:lang="pt_BR">Autenticação necessária para instalar um driver PKCS#11 fornecido pelo fabricante.</message>
+    <message xml:lang="en">Authentication is required to install a PKCS#11 driver from the manufacturer.</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/lib/big-certificados/scripts/big-drivers-install.py</annotate>
+  </action>
+</policyconfig>

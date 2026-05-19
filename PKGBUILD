@@ -26,6 +26,9 @@ depends=(
     'python-endesive'
     'python-certifi'
     'python-qrcode'
+    'binutils'  # ar — extrai .deb no instalador de drivers (big-drivers)
+    'tar'       # data.tar.zst dentro do .deb (big-drivers)
+    'polkit'    # autorização do helper big-drivers-install
 )
 optdepends=(
     'pcsc-tools: Diagnóstico de leitores PC/SC (pcsc_scan)'
@@ -76,6 +79,14 @@ EOF
         "${_appdir}/scripts/pjeoffice-uninstall-helper.sh"
     install -Dm755 "${startdir}/scripts/pjeoffice-detect-uiscale.py" \
         "${_appdir}/scripts/pjeoffice-detect-uiscale.py"
+
+    # big-drivers — helper privilegiado e catálogo de drivers proprietários
+    install -Dm755 "${startdir}/scripts/big-drivers-install.py" \
+        "${_appdir}/scripts/big-drivers-install.py"
+    install -dm755 "${_appdir}/data/drivers"
+    install -m644 "${startdir}/data/drivers/"*.toml "${_appdir}/data/drivers/"
+    install -Dm644 "${startdir}/data/polkit/org.bigcommunity.drivers.policy" \
+        "${pkgdir}/usr/share/polkit-1/actions/org.bigcommunity.drivers.policy"
 
     # License
     install -Dm644 "${startdir}/LICENSE" \

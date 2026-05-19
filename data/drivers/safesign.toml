@@ -1,0 +1,73 @@
+# big-drivers · SafeSign Identity Client
+#
+# Catálogo declarativo de driver proprietário. O big-drivers usa este
+# arquivo para baixar, verificar, mostrar EULA e instalar — sem passar
+# por AUR ou reempacotamento comunitário. A fonte é o canal oficial de
+# distribuição da A.E.T. Europe via parceira licenciada (KPN Telecom).
+
+schema_version = 1
+
+[driver]
+id = "safesign"
+vendor = "A.E.T. Europe B.V."
+vendor_url = "https://www.aeteurope.com/"
+product = "SafeSign Identity Client"
+version = "4.5.0.0"
+arch = "x86_64"
+description = "Driver PKCS#11 oficial usado por tokens G&D StarSign e leitores de smartcard ICP-Brasil."
+
+# Quem hospeda e tem direito legal de redistribuir o instalador oficial.
+# Não é a A.E.T. Europe diretamente — eles distribuem via parceiros.
+[distributor]
+name = "KPN Telecom B.V."
+url = "https://certificaat.kpn.com/installatie-en-gebruik/installatie/pas-usb-stick/linux/"
+note = "Parceira da A.E.T. Europe; mantém mirror oficial do SafeSign em CDN próprio."
+
+[source]
+format = "deb"
+url = "https://assets.ctfassets.net/zuadwp3l2xby/6vGICRnQgQ8TkcHTgcouIr/5acf96dcbc0364aa9228606d3969ef97/SafeSignICStandardLinux4.5.0.0-AET.000ub2404x86_64.deb"
+sha256 = "7742e21e3141e51e307d7613b4046886bc7c4aa203835dcf5c43cd348f2a1b91"
+size_bytes = 2034336
+label = "SafeSign Identity Client 4.5.0.0 (.deb da Ubuntu 24.04)"
+
+[license]
+type = "proprietary"
+# EULA traduzida pra pt-BR já vem dentro do .deb — preferimos essa.
+file_in_archive = "usr/share/doc/safesignidentityclient/SafeSign_License_Agreement_PT_BR.txt"
+file_in_archive_fallback = "usr/share/doc/safesignidentityclient/license.txt"
+summary = "Software proprietário da A.E.T. Europe B.V. A licença completa será exibida antes de qualquer instalação."
+
+[install]
+prefix = "/usr/local/lib/big-drivers/safesign"
+
+# Diretórios copiados de dentro do .deb para o prefix isolado.
+# Path "from" é relativo à raiz do data.tar do .deb.
+# Path "to" é relativo ao prefix.
+[[install.dirs]]
+from = "usr/lib"
+to = "lib"
+
+[[install.dirs]]
+from = "usr/share/doc/safesignidentityclient"
+to = "share/doc/safesignidentityclient"
+
+# A libaetpkss.so tem `/usr/share/safesign/registry` hardcoded — esse é
+# o único caminho que precisa sair do prefix isolado. O helper verifica
+# se /usr/share/safesign já existe (instalação prévia via pacman/AUR ou
+# outro big-drivers) antes de escrever, e aborta se houver conflito.
+[[install.shared_dirs]]
+from = "usr/share/safesign"
+to = "/usr/share/safesign"
+
+# Tokens cobertos por este driver (VID:PID em hexadecimal).
+# Quando um token nessa lista for detectado e libaetpkss.so não estiver
+# presente, o big-drivers oferece este driver para instalação.
+[[tokens]]
+vid = 0x1059
+pid = 0x0017
+name = "G&D StarSign CUT"
+
+[[tokens]]
+vid = 0x1059
+pid = 0x0019
+name = "G&D StarSign CUT S"
