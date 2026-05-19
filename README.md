@@ -15,7 +15,7 @@ Stack jurídica completa para advogados brasileiros no GNU/Linux — certificado
   <img src="https://img.shields.io/badge/Adwaita-1.0%2B-4A86CF?logo=gnome&logoColor=white" alt="Adwaita 1.0+">
   <img src="https://img.shields.io/badge/Platform-GNU%2FLinux-FCC624?logo=linux&logoColor=black" alt="Platform: GNU/Linux">
   <img src="https://img.shields.io/badge/Arch_Linux-1793D1?logo=arch-linux&logoColor=white" alt="Arch Linux">
-  <img src="https://img.shields.io/badge/Status-v1.2.0-green?logo=git&logoColor=white" alt="Status: v1.2.0">
+  <img src="https://img.shields.io/badge/Status-v1.3.0-green?logo=git&logoColor=white" alt="Status: v1.3.0">
 </p>
 
 > ⚠️ **Este projeto está em fase de testes.**
@@ -366,9 +366,10 @@ Web Signer:
 
 1. A extensão Web Signer detecta o Big Advogados como native messaging host
 2. O e-SAJ lista os certificados disponíveis no dropdown
-3. Ao assinar, o Big Advogados pede a senha do PFX via dialog
-4. A assinatura é feita localmente com a biblioteca `cryptography`
-5. O resultado é enviado de volta ao e-SAJ para validação
+3. Ao assinar:
+   - **A1 (.p12)** — o Big Advogados pede a senha do PFX via diálogo (zenity/kdialog) e assina com a biblioteca `cryptography`
+   - **A3 (token USB)** — o Big Advogados localiza o slot PKCS#11 do token, pede o PIN, faz `C_Login` e assina via `CKM_RSA_PKCS` (com prefixo DigestInfo) ou `CKM_SHA*_RSA_PKCS`. PIN é solicitado uma única vez por sessão; a sessão PKCS#11 é fechada no shutdown
+4. O resultado é enviado de volta ao e-SAJ para validação
 
 **Instalação (automática):**
 
@@ -915,6 +916,35 @@ python -m src.main
 ---
 
 ## Changelog
+
+### v1.3.0 (2026-05-19)
+
+**Assinatura com token A3 (PKCS#11) no WebSigner:**
+- Native messaging host agora despacha entre A3 (token USB via PKCS#11) e A1 (.p12)
+  pelo thumbprint do certificado solicitado pela página
+- Enumeração de certificados percorre módulos PKCS#11 conhecidos (TokenDatabase) +
+  OpenSC fallback; CKA_ID liga cert ↔ chave privada
+- Assinatura via `CKM_RSA_PKCS` com prefixo DigestInfo DER (RFC 3447 §9.2) para
+  `signHash`; `CKM_SHA{1,256,384,512}_RSA_PKCS` para `signData`
+- PIN solicitado uma única vez via zenity/kdialog e sessão PKCS#11 cacheada pelo
+  tempo de vida do native host (uma sessão Firefox → um PIN)
+- Logout + `closeSession` automáticos no shutdown
+
+**Painel WebSigner — UX para advogados:**
+- Nova linha de status "Token A3 detectado" mostra modelo identificado quando
+  plugado (reusa `UdevMonitor.scan_existing` + `TokenDatabase`)
+- Textos reescritos sem jargão técnico (PKCS#11, Lacuna Web PKI, NSS removidos da
+  UI; mantidos no código/logs)
+- Lista de "Próximos passos" no diálogo Configurar virou checklist concreto
+- Removido link quebrado para extensão Web Signer da Mozilla AMO (despublicada)
+- Singular/plural correto em "navegador(es)"
+- Pre-flight hint no log do diálogo Configurar e-SAJ (não fica vazio)
+
+**Auditoria geral de textos:**
+- `deps_dialog.py`, `signer_view.py`, `vidaas_view.py`: descrições reescritas em
+  linguagem objetiva, sem jargão técnico desnecessário ("middleware", "daemon",
+  "parsing", "módulo PKCS#11", etc. removidos da UI; mantidos no código/logs)
+- AC → "Emissor" no carimbo do certificado em uso
 
 ### v1.2.1 (2026-05-18)
 

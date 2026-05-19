@@ -16,7 +16,7 @@ from src.ui.password_settings import PasswordSettingsDialog
 log = logging.getLogger(__name__)
 
 APP_ID = "com.bigcertificados"
-CURRENT_VERSION = "1.2.0"
+CURRENT_VERSION = "1.3.0"
 
 
 class BigCertificadosApp(Adw.Application):
@@ -147,6 +147,7 @@ class BigCertificadosApp(Adw.Application):
             "Stack jurídica completa para advogados brasileiros no GNU/Linux — "
             "certificados digitais, assinatura, WebSigner e acesso a tribunais.\n\n"
             "Recursos:\n"
+            "• Assinatura no e-SAJ TJSP com token A3 ou certificado A1 (WebSigner nativo)\n"
             "• Certificados A3 via token USB (PKCS#11)\n"
             "• Certificados A1 (PFX/P12)\n"
             "• VidaaS Connect — certificado A3 na nuvem\n"
@@ -162,14 +163,30 @@ class BigCertificadosApp(Adw.Application):
         about.set_application_icon("bigcertificados")
         about.set_license_type(Gtk.License.MIT_X11)
         about.set_release_notes(
-            "<p>Novidades na versão 1.1.0:</p>"
+            "<p>Novidades na versão 1.3.0:</p>"
+            "<ul>"
+            "<li>WebSigner agora assina no e-SAJ com token A3 (PKCS#11), não só com A1 (.p12)</li>"
+            "<li>Painel do WebSigner mostra se o token está conectado e qual modelo</li>"
+            "<li>Diálogo de PIN do token via zenity/kdialog na hora da assinatura</li>"
+            "<li>Textos do painel reescritos sem jargão — orientado a advogados leigos</li>"
+            "<li>Removido link quebrado para extensão Web Signer da Mozilla AMO</li>"
+            "</ul>"
+            "<p>Versão 1.2.0:</p>"
+            "<ul>"
+            "<li>WebSigner nativo — conector PKI próprio compatível com o e-SAJ TJSP</li>"
+            "<li>Diálogo de configuração e-SAJ com instalação automática da ponte WebPKI</li>"
+            "<li>Importação de PFX direto pelo Web Signer (importPkcs12)</li>"
+            "<li>Assinador de PDFs: carimbo visível redesenhado + página de certificação opcional</li>"
+            "<li>Detecção automática de HiDPI para o PJeOffice Pro (Java Swing)</li>"
+            "<li>Rebranding: BigCertificados → Big Advogados</li>"
+            "</ul>"
+            "<p>Versão 1.1.0:</p>"
             "<ul>"
             "<li>URLs de sistemas judiciais atualizados — 10 links quebrados corrigidos</li>"
             "<li>Migração para eProc (TRF2, TRF4, TJRS)</li>"
-            "<li>Dashboard simplificado sem scroll desnecessário (Adw.StatusPage)</li>"
+            "<li>Dashboard simplificado sem scroll desnecessário</li>"
             "<li>Certificados unificados com abas ViewStack (A3 + A1)</li>"
-            "<li>Correção de warnings do pyudev no terminal</li>"
-            "<li>AdwStyleManager — respeita tema do sistema por padrão</li>"
+            "<li>Tema escuro respeita preferência do sistema por padrão</li>"
             "</ul>"
             "<p>Versão 1.0.0:</p>"
             "<ul>"
