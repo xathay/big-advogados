@@ -33,3 +33,6 @@ pkg/
 src_pkg/
 *.pkg.tar
 *.pkg.tar.*
+
+# Local agent / assistant state
+.claude/
