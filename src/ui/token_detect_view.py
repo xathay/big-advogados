@@ -102,33 +102,37 @@ class TokenDetectView(Gtk.ScrolledWindow):
         row.set_icon_name(icon)
         row.set_activatable(True)
 
-        # Module status indicator
-        module_path = self._token_db.find_pkcs11_library(vid, pid)
-        if module_path:
+        # Module status indicator. We distinguish three cases:
+        #   1. Vendor-specific driver installed → green "Módulo OK".
+        #   2. Only OpenSC fallback available → yellow warning suggesting
+        #      the vendor package (OpenSC rarely works for ICP-Brasil
+        #      tokens; promising "OK" here misleads the user).
+        #   3. No module at all → red error.
+        vendor_module = self._token_db.find_vendor_pkcs11_library(vid, pid)
+        pkg = self._token_db.suggest_package(vid, pid)
+        if vendor_module:
             status_label = Gtk.Label(label="Módulo OK")
             status_label.add_css_class("success")
             row.add_suffix(status_label)
 
             arrow = Gtk.Image.new_from_icon_name("go-next-symbolic")
             row.add_suffix(arrow)
-        else:
-            pkg = self._token_db.suggest_package(vid, pid)
-            if pkg:
-                status_label = Gtk.Label(label=f"Driver: {pkg}")
-                status_label.add_css_class("warning")
-                row.add_suffix(status_label)
+        elif pkg:
+            status_label = Gtk.Label(label=f"Driver: {pkg}")
+            status_label.add_css_class("warning")
+            row.add_suffix(status_label)
 
-                install_btn = Gtk.Button()
-                install_btn.set_icon_name("software-install-symbolic")
-                install_btn.set_tooltip_text(f"Instalar {pkg}")
-                install_btn.set_valign(Gtk.Align.CENTER)
-                install_btn.add_css_class("flat")
-                install_btn.connect("clicked", self._on_install_driver, pkg, row)
-                row.add_suffix(install_btn)
-            else:
-                status_label = Gtk.Label(label="Módulo não encontrado")
-                status_label.add_css_class("error")
-                row.add_suffix(status_label)
+            install_btn = Gtk.Button()
+            install_btn.set_icon_name("software-install-symbolic")
+            install_btn.set_tooltip_text(f"Instalar {pkg}")
+            install_btn.set_valign(Gtk.Align.CENTER)
+            install_btn.add_css_class("flat")
+            install_btn.connect("clicked", self._on_install_driver, pkg, row)
+            row.add_suffix(install_btn)
+        else:
+            status_label = Gtk.Label(label="Módulo não encontrado")
+            status_label.add_css_class("error")
+            row.add_suffix(status_label)
 
         self._token_rows[key] = row
         self._token_group.add(row)

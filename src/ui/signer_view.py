@@ -681,11 +681,7 @@ class SignerView(Gtk.ScrolledWindow):
         self._cert_row.set_sensitive(False)
 
         def detect_thread() -> None:
-            module = mgr.try_all_modules()
-            if module:
-                slots = mgr.get_slots()
-            else:
-                slots = []
+            _module, slots = mgr.try_all_modules()
             GLib.idle_add(on_detect_done, slots)
 
         def on_detect_done(slots: list) -> bool:

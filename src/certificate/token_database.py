@@ -523,16 +523,35 @@ _TOKEN_LIST: list[TokenInfo] = [
     ),
 
     # ── G&D (Giesecke+Devrient) ──────────────────────────────────────
+    # O G&D StarSign CUT é, na prática, dirigido pelo SafeSign Identity
+    # Client (libaetpkcs11.so) — é o que as ACs brasileiras (Soluti,
+    # Valid, Certisign, Serasa) distribuem. libstarsignpkcs11.so existe
+    # mas é raro fora de ambiente corporativo.
+    TokenInfo(
+        vendor="G&D", model="StarSign CUT",
+        vid=0x1059, pid=0x0017,
+        pkcs11_module="libaetpkcs11.so",
+        search_paths=(
+            "/usr/lib/libaetpkcs11.so",
+            "/usr/lib64/libaetpkcs11.so",
+            "/usr/lib/x86_64-linux-gnu/libaetpkcs11.so",
+            "/usr/lib/libstarsignpkcs11.so",
+            "/usr/lib64/libstarsignpkcs11.so",
+        ),
+        description="Token G&D StarSign CUT (USB 1059:0017)",
+    ),
     TokenInfo(
         vendor="G&D", model="StarSign CUT S",
         vid=0x1059, pid=0x0019,
-        pkcs11_module="libstarsignpkcs11.so",
+        pkcs11_module="libaetpkcs11.so",
         search_paths=(
+            "/usr/lib/libaetpkcs11.so",
+            "/usr/lib64/libaetpkcs11.so",
+            "/usr/lib/x86_64-linux-gnu/libaetpkcs11.so",
             "/usr/lib/libstarsignpkcs11.so",
             "/usr/lib64/libstarsignpkcs11.so",
-            "/usr/lib/pkcs11/libstarsignpkcs11.so",
         ),
-        description="Token G&D StarSign CUT S (USB vendor 1059)",
+        description="Token G&D StarSign CUT S (USB 1059:0019)",
     ),
 
     # ── Valid Certificadora ───────────────────────────────────────────
@@ -617,13 +636,25 @@ class TokenDatabase:
     def lookup_by_module(self, module_name: str) -> list[TokenInfo]:
         return self._by_module.get(module_name, [])
 
-    def find_pkcs11_library(self, vid: int, pid: int) -> Optional[str]:
-        """Find the first existing PKCS#11 library for a given USB device."""
+    def find_vendor_pkcs11_library(self, vid: int, pid: int) -> Optional[str]:
+        """Find the first existing vendor-specific PKCS#11 library.
+
+        Unlike :meth:`find_pkcs11_library`, does not fall back to OpenSC —
+        so callers can tell the difference between "real driver installed"
+        and "we'll try OpenSC and hope for the best".
+        """
         tokens = self.lookup_by_usb(vid, pid)
         for token in tokens:
             for path_str in token.search_paths:
                 if Path(path_str).is_file():
                     return path_str
+        return None
+
+    def find_pkcs11_library(self, vid: int, pid: int) -> Optional[str]:
+        """Find the first existing PKCS#11 library for a given USB device."""
+        vendor = self.find_vendor_pkcs11_library(vid, pid)
+        if vendor is not None:
+            return vendor
         # Fallback: try OpenSC
         for fallback in (
             "/usr/lib/opensc-pkcs11.so",
@@ -678,6 +709,6 @@ _MODULE_TO_PACKAGE: dict[str, str] = {
     "libASEP11.so": "opensc",
     "opensc-pkcs11.so": "opensc",
     "libaetpkcs11.so": "safesignidentityclient",
-    "libstarsignpkcs11.so": "opensc",
+    "libstarsignpkcs11.so": "safesignidentityclient",
     "libkNET_pkcs11.so": "opensc",
 }

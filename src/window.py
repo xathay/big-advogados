@@ -607,22 +607,33 @@ class MainWindow(Adw.ApplicationWindow):
         return False
 
     def _try_auto_detect(self) -> None:
-        """Try to find tokens via PKCS#11 module probing."""
+        """Try to find tokens via PKCS#11 module probing.
+
+        Runs entirely on a background thread; the result handler only
+        prompts for the PIN (no PKCS#11 calls on the GTK thread).
+        """
         if not self._a3_manager.is_available:
             return
 
+        self._set_status("Procurando driver PKCS#11 compatível...")
+
         def probe_thread() -> None:
-            module = self._a3_manager.try_all_modules()
-            if module:
-                GLib.idle_add(self._on_module_found, module)
+            module, slots = self._a3_manager.try_all_modules()
+            GLib.idle_add(self._on_module_probe_done, module, slots)
 
         threading.Thread(target=probe_thread, daemon=True).start()
 
-    def _on_module_found(self, module_path: str) -> bool:
-        self._set_status(f"Módulo encontrado: {module_path}")
-        slots = self._a3_manager.get_slots()
-        if slots:
+    def _on_module_probe_done(
+        self, module_path, slots: list,
+    ) -> bool:
+        if module_path and slots:
+            self._set_status(f"Módulo encontrado: {module_path}")
             self._prompt_pin(slots[0])
+        else:
+            self._set_status(
+                "Nenhum driver PKCS#11 reconheceu o token — "
+                "instale o driver do fabricante",
+            )
         return False
 
     def _on_usb_event(
@@ -659,18 +670,43 @@ class MainWindow(Adw.ApplicationWindow):
     def _on_token_row_activated(
         self, row: Adw.ActionRow, vid: int = 0, pid: int = 0,
     ) -> None:
-        # Load PKCS#11 module
-        if vid and pid:
-            success = self._a3_manager.load_module_for_device(vid, pid)
-            if not success:
-                self._set_status("Módulo PKCS#11 não encontrado para este dispositivo")
-                return
+        # Loading a PKCS#11 module invokes C_Initialize in the vendor
+        # driver, which can take several seconds (or hang) on freshly
+        # inserted tokens. Run it on a background thread so the GTK
+        # main loop stays responsive.
+        self._set_status("Conectando ao token...")
 
-        slots = self._a3_manager.get_slots()
+        def connect_thread() -> None:
+            if vid and pid:
+                if not self._a3_manager.load_module_for_device(vid, pid):
+                    GLib.idle_add(
+                        self._set_status,
+                        "Módulo PKCS#11 não encontrado para este dispositivo",
+                    )
+                    return
+            slots = self._a3_manager.get_slots()
+            GLib.idle_add(self._on_token_connected, slots, vid, pid)
+
+        threading.Thread(target=connect_thread, daemon=True).start()
+
+    def _on_token_connected(self, slots: list, vid: int, pid: int) -> bool:
         if slots:
             self._prompt_pin(slots[0])
-        else:
-            self._set_status("Nenhum slot de token disponível")
+            return False
+
+        # No slots: most often the loaded module is the OpenSC fallback
+        # for a token that needs a vendor driver. Tell the user which
+        # package would actually drive this hardware.
+        if vid and pid and self._token_db.find_vendor_pkcs11_library(vid, pid) is None:
+            pkg = self._token_db.suggest_package(vid, pid)
+            if pkg:
+                self._set_status(
+                    f"Token detectado, mas o driver instalado não o reconhece — "
+                    f"instale '{pkg}'",
+                )
+                return False
+        self._set_status("Nenhum slot de token disponível")
+        return False
 
     def _prompt_pin(self, slot_info: object) -> None:
         from src.certificate.a3_manager import TokenSlotInfo

@@ -205,17 +205,44 @@ class A3Manager:
     def current_module(self) -> Optional[str]:
         return self._current_module
 
-    def try_all_modules(self) -> Optional[str]:
-        """Try loading each known PKCS#11 module until one works."""
+    def try_all_modules(self) -> tuple[Optional[str], list[TokenSlotInfo]]:
+        """Try loading each known PKCS#11 module until one with slots is found.
+
+        Returns ``(module_path, slots)`` — slots already enumerated so the
+        caller doesn't need a second blocking PKCS#11 call. On failure,
+        returns ``(None, [])``.
+
+        OpenSC is tried first: it is the safest probe (won't lock up on
+        mismatched USB hardware the way some vendor drivers do) and works
+        for many readers/cards. Vendor drivers come after.
+        """
         from pathlib import Path
 
-        for module_name in sorted(self._token_db.unique_modules()):
+        seen_paths: set[str] = set()
+        opensc_first = ("opensc-pkcs11.so",)
+        ordered = list(opensc_first) + [
+            m for m in sorted(self._token_db.unique_modules())
+            if m not in opensc_first
+        ]
+
+        for module_name in ordered:
             tokens = self._token_db.lookup_by_module(module_name)
             for token in tokens:
                 for path in token.search_paths:
-                    if Path(path).is_file():
-                        if self.load_module(path):
-                            slots = self.get_slots()
-                            if slots:
-                                return path
-        return None
+                    if path in seen_paths:
+                        continue
+                    seen_paths.add(path)
+                    if not Path(path).is_file():
+                        continue
+                    if not self.load_module(path):
+                        continue
+                    slots = self.get_slots()
+                    if slots:
+                        return path, slots
+                    # Release the driver before trying the next one so we
+                    # don't leave several PKCS#11 libs initialized at once
+                    # (some drivers will fight over the USB device).
+                    with self._lock:
+                        self._pkcs11 = None
+                        self._current_module = None
+        return None, []
