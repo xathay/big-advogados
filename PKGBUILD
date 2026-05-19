@@ -1,6 +1,6 @@
 # Maintainer: Leonardo Athayde <leoathayde@gmail.com>
 pkgname=big-certificados
-pkgver=1.3.0
+pkgver=1.3.1
 pkgrel=1
 pkgdesc="Stack jurídica para advogados brasileiros — certificados digitais, assinatura, WebSigner e acesso a tribunais"
 arch=('any')
