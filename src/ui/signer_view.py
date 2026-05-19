@@ -293,7 +293,7 @@ class SignerView(Gtk.ScrolledWindow):
 
         self._papers_row = Adw.ActionRow()
         self._papers_row.set_title("Configurar Papers")
-        self._papers_row.set_subtitle("Importar cadeia de certificados no NSS")
+        self._papers_row.set_subtitle("Importar a cadeia de certificados ICP-Brasil para validar assinaturas")
         self._papers_row.set_icon_name("org.gnome.Papers")
         self._papers_row.set_activatable(True)
         self._papers_row.connect("activated", self._on_configure_papers)
@@ -553,7 +553,7 @@ class SignerView(Gtk.ScrolledWindow):
     def _select_vidaas_cert(self) -> None:
         """Detect VidaaS cloud certificate via PKCS#11."""
         if self._a3_manager is None:
-            self._cert_row.set_subtitle("Suporte a PKCS#11 indisponível")
+            self._cert_row.set_subtitle("Suporte a certificado em nuvem indisponível — confira as dependências")
             return
 
         if self._vidaas_manager is None:
@@ -648,7 +648,7 @@ class SignerView(Gtk.ScrolledWindow):
         if cert_info.oab:
             subtitle_parts.append(f"OAB: {cert_info.oab}")
         if cert_info.issuer_cn:
-            subtitle_parts.append(f"AC: {cert_info.issuer_cn}")
+            subtitle_parts.append(f"Emissor: {cert_info.issuer_cn}")
 
         if self._cert_type == CERT_TYPE_A1:
             fallback = os.path.basename(self._pfx_path or "")
@@ -674,7 +674,7 @@ class SignerView(Gtk.ScrolledWindow):
         """Detect A3 tokens and let the user select a certificate."""
         mgr = self._a3_manager
         if mgr is None or not mgr.is_available:
-            self._cert_row.set_subtitle("Suporte a token A3 indisponível (PyKCS11)")
+            self._cert_row.set_subtitle("Suporte a token A3 indisponível — confira as dependências em Ajuda → Dependências")
             return
 
         self._cert_row.set_subtitle("Detectando tokens...")

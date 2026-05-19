@@ -51,13 +51,13 @@ class DependencyCheckDialog(Adw.Dialog):
         sys_group.set_description("Instalados via pacman")
 
         sys_deps = [
-            ("pcscd", "pcsclite", "PC/SC daemon para smartcards",
+            ("pcscd", "pcsclite", "Serviço de leitura de tokens (smartcards)",
              "system-run-symbolic"),
-            ("modutil", "nss", "NSS tools para navegadores",
+            ("modutil", "nss", "Registro de certificados em navegadores",
              "preferences-system-network-symbolic"),
-            ("opensc-tool", "opensc", "OpenSC smartcard middleware",
+            ("opensc-tool", "opensc", "Acesso a tokens USB padrão (OpenSC)",
              "application-x-addon-symbolic"),
-            ("ccid", "ccid", "Drivers CCID para leitores",
+            ("ccid", "ccid", "Drivers de leitores de cartão/token",
              "drive-removable-media-symbolic"),
             ("pikepdf", "python-pikepdf", "Manipulação de PDFs",
              "x-office-document-symbolic"),
@@ -129,14 +129,14 @@ class DependencyCheckDialog(Adw.Dialog):
         # ── Python dependencies ──
         py_group = Adw.PreferencesGroup()
         py_group.set_title("Módulos Python")
-        py_group.set_description("Bibliotecas de runtime")
+        py_group.set_description("Componentes internos do aplicativo")
 
         py_deps = [
-            ("PyKCS11", "python-pykcs11", "Comunicação PKCS#11"),
-            ("pyudev", "python-pyudev", "Detecção USB via udev"),
-            ("cryptography", "python-cryptography", "Parsing de certificados"),
-            ("asn1crypto", "python-asn1crypto", "ASN.1 para certificados"),
-            ("oscrypto", "python-oscrypto", "Criptografia nativa"),
+            ("PyKCS11", "python-pykcs11", "Comunicação com tokens A3"),
+            ("pyudev", "python-pyudev", "Detecção de dispositivos USB"),
+            ("cryptography", "python-cryptography", "Leitura de certificados digitais"),
+            ("asn1crypto", "python-asn1crypto", "Decodificação de certificados"),
+            ("oscrypto", "python-oscrypto", "Operações criptográficas"),
             ("endesive", "python-endesive", "Assinatura digital de PDFs"),
         ]
 

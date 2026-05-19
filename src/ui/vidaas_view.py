@@ -165,11 +165,11 @@ class VidaaSView(Gtk.ScrolledWindow):
 
         self._dep_rows: dict[str, Adw.ActionRow] = {}
         dep_items = [
-            ("opensc", "OpenSC", "Módulo PKCS#11 para tokens virtuais",
+            ("opensc", "OpenSC", "Comunicação com o token virtual VidaaS",
              "application-x-addon-symbolic"),
-            ("pcscd", "Serviço PC/SC", "Daemon de comunicação com smart cards",
+            ("pcscd", "Serviço PC/SC", "Serviço de leitura de tokens",
              "system-run-symbolic"),
-            ("ccid", "Drivers CCID", "Suporte a leitores de smart cards",
+            ("ccid", "Drivers CCID", "Drivers de leitores de cartão/token",
              "drive-removable-media-symbolic"),
             ("pcscd_running", "Serviço ativo", "pcscd em execução",
              "media-playback-start-symbolic"),
@@ -246,7 +246,7 @@ class VidaaSView(Gtk.ScrolledWindow):
         self._token_row = Adw.ActionRow()
         self._token_row.set_title("Aguardando detecção")
         self._token_row.set_subtitle(
-            "O token virtual será detectado automaticamente via OpenSC"
+            "O token virtual será detectado automaticamente"
         )
         self._token_row.set_icon_name("network-wireless-acquiring-symbolic")
         self._detect_group.add(self._token_row)
@@ -295,15 +295,15 @@ class VidaaSView(Gtk.ScrolledWindow):
         inner.append(diag_group)
 
         diag_scan_row = Adw.ActionRow()
-        diag_scan_row.set_title("Escanear leitores PC/SC")
-        diag_scan_row.set_subtitle("Executa pcsc_scan para listar dispositivos")
+        diag_scan_row.set_title("Listar leitores de cartão/token conectados")
+        diag_scan_row.set_subtitle("Diagnóstico — mostra todos os dispositivos vistos pelo sistema")
         diag_scan_row.set_icon_name("system-search-symbolic")
         diag_scan_row.set_activatable(True)
         diag_scan_row.connect("activated", self._on_diag_clicked)
 
         self._diag_scan_btn = Gtk.Button()
         self._diag_scan_btn.set_icon_name("media-playback-start-symbolic")
-        self._diag_scan_btn.set_tooltip_text("Executar pcsc_scan")
+        self._diag_scan_btn.set_tooltip_text("Executar diagnóstico")
         self._diag_scan_btn.set_valign(Gtk.Align.CENTER)
         self._diag_scan_btn.add_css_class("flat")
         self._diag_scan_btn.connect("clicked", self._on_diag_clicked)
@@ -403,7 +403,7 @@ class VidaaSView(Gtk.ScrolledWindow):
         self._browser_group = Adw.PreferencesGroup()
         self._browser_group.set_title("Configurar navegadores")
         self._browser_group.set_description(
-            "Registre o módulo PKCS#11 para usar o certificado nos sites dos tribunais"
+            "Configura o certificado em nuvem para uso direto nos sites dos tribunais"
         )
         inner.append(self._browser_group)
 
@@ -623,7 +623,7 @@ class VidaaSView(Gtk.ScrolledWindow):
         self._detect_spinner.set_spinning(True)
 
         self._token_row.set_title("Buscando token VidaaS…")
-        self._token_row.set_subtitle("Verificando slots PKCS#11 via OpenSC")
+        self._token_row.set_subtitle("Verificando conexão com o token virtual…")
         self._token_row.set_icon_name("content-loading-symbolic")
 
         vidaas = self._vidaas_manager
@@ -829,7 +829,7 @@ class VidaaSView(Gtk.ScrolledWindow):
         self._vidaas_manager.disconnect()
         self._token_row.set_title("Aguardando detecção")
         self._token_row.set_subtitle(
-            "O token virtual será detectado automaticamente via OpenSC"
+            "O token virtual será detectado automaticamente"
         )
         self._token_row.set_icon_name("network-wireless-acquiring-symbolic")
         self._connected_banner.set_revealed(False)
@@ -840,7 +840,7 @@ class VidaaSView(Gtk.ScrolledWindow):
     def _on_diag_clicked(self, _widget: Gtk.Widget) -> None:
         """Run pcsc_scan diagnostics."""
         self._diag_frame.set_visible(True)
-        self._diag_text.set_label("Executando pcsc_scan…")
+        self._diag_text.set_label("Listando dispositivos conectados…")
         self._diag_scan_btn.set_sensitive(False)
 
         def diag_thread() -> None:
