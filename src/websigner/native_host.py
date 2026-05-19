@@ -20,6 +20,7 @@ import subprocess
 import sys
 import tempfile
 from base64 import b64decode, b64encode
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
@@ -62,6 +63,38 @@ DIGEST_NAMES: dict[str, str] = {
     "sha-512": "sha512",
     "sha512": "sha512",
 }
+
+# DigestInfo DER prefixes (RFC 3447 §9.2) — prepended to a raw hash before
+# CKM_RSA_PKCS so the token signs the same structure that PKCS#1 v1.5 expects.
+DIGEST_INFO_PREFIX: dict[str, bytes] = {
+    "sha1":   bytes.fromhex("3021300906052b0e03021a05000414"),
+    "sha256": bytes.fromhex("3031300d060960864801650304020105000420"),
+    "sha384": bytes.fromhex("3041300d060960864801650304020205000430"),
+    "sha512": bytes.fromhex("3051300d060960864801650304020305000440"),
+}
+
+# PKCS#11 mechanism names for sign_data (token hashes + signs the full message).
+PKCS11_MECH_NAMES: dict[str, str] = {
+    "sha1":   "CKM_SHA1_RSA_PKCS",
+    "sha256": "CKM_SHA256_RSA_PKCS",
+    "sha384": "CKM_SHA384_RSA_PKCS",
+    "sha512": "CKM_SHA512_RSA_PKCS",
+}
+
+# Optional A3 (PKCS#11) support — degrades to A1-only if missing.
+try:
+    import PyKCS11  # type: ignore[import-not-found]
+    from PyKCS11 import (
+        PyKCS11Lib,
+        CKA_CLASS, CKA_VALUE, CKA_ID, CKA_LABEL,
+        CKO_CERTIFICATE, CKO_PRIVATE_KEY,
+        CKF_SERIAL_SESSION,
+        Mechanism,
+    )
+    PKCS11_AVAILABLE = True
+except Exception:
+    PyKCS11 = None  # type: ignore[assignment]
+    PKCS11_AVAILABLE = False
 
 
 # ---------------------------------------------------------------------------
@@ -411,6 +444,310 @@ def _get_private_key_for_thumbprint(thumbprint: str):
 
 
 # ---------------------------------------------------------------------------
+# A3 (PKCS#11) operations — signing with tokens like G&D StarSign, eToken, etc.
+# ---------------------------------------------------------------------------
+
+@dataclass
+class _A3CertEntry:
+    thumbprint: str
+    der: bytes
+    module_path: str
+    slot_id: int
+    cka_id: bytes
+    subject_name: str
+    issuer_name: str
+    cpf: str
+    not_before: str
+    not_after: str
+
+
+# Caches that live for the duration of the native host process (one per Firefox session).
+_a3_cert_cache: dict[str, _A3CertEntry] = {}          # thumbprint → entry
+_a3_modules_loaded: dict[str, Any] = {}               # module_path → PyKCS11Lib
+_a3_session_cache: dict[tuple[str, int], Any] = {}    # (module_path, slot_id) → logged-in session
+
+
+def _scan_a3_module_paths() -> list[str]:
+    """Return list of existing PKCS#11 .so paths known to TokenDatabase."""
+    try:
+        from src.certificate.token_database import TokenDatabase
+    except Exception as exc:
+        log.warning("A3: could not import TokenDatabase: %s", exc)
+        return []
+
+    db = TokenDatabase()
+    seen: set[str] = set()
+    for module_name in sorted(db.unique_modules()):
+        for token in db.lookup_by_module(module_name):
+            for path in token.search_paths:
+                if path not in seen and Path(path).is_file():
+                    seen.add(path)
+    # OpenSC fallback — covers tokens that ship with PKCS#15 profile only.
+    for fallback in ("/usr/lib/opensc-pkcs11.so", "/usr/lib/pkcs11/opensc-pkcs11.so"):
+        if Path(fallback).is_file():
+            seen.add(fallback)
+    return sorted(seen)
+
+
+def _load_pkcs11_module(module_path: str):
+    """Load (or fetch from cache) a PKCS#11 library. Returns None on failure."""
+    if not PKCS11_AVAILABLE:
+        return None
+    if module_path in _a3_modules_loaded:
+        return _a3_modules_loaded[module_path]
+    try:
+        lib = PyKCS11Lib()
+        lib.load(module_path)
+        _a3_modules_loaded[module_path] = lib
+        log.info("A3: loaded PKCS#11 module %s", module_path)
+        return lib
+    except Exception as exc:
+        log.warning("A3: failed to load %s: %s", module_path, exc)
+        return None
+
+
+def list_certificates_from_a3() -> list[dict]:
+    """Enumerate end-entity certificates from every present A3 token.
+
+    Repopulates ``_a3_cert_cache`` so later signHash/signData calls can route
+    by thumbprint to the right module+slot.
+    """
+    if not PKCS11_AVAILABLE:
+        return []
+
+    from cryptography import x509
+
+    out: list[dict] = []
+    _a3_cert_cache.clear()
+
+    for module_path in _scan_a3_module_paths():
+        lib = _load_pkcs11_module(module_path)
+        if lib is None:
+            continue
+
+        try:
+            slots = lib.getSlotList(tokenPresent=True)
+        except Exception as exc:
+            log.warning("A3: getSlotList(%s) failed: %s", module_path, exc)
+            continue
+
+        for slot_id in slots:
+            try:
+                session = lib.openSession(slot_id, CKF_SERIAL_SESSION)
+            except Exception as exc:
+                log.warning("A3: openSession slot=%d (%s) failed: %s",
+                            slot_id, module_path, exc)
+                continue
+
+            try:
+                objs = session.findObjects([(CKA_CLASS, CKO_CERTIFICATE)])
+                for obj in objs:
+                    try:
+                        attrs = session.getAttributeValue(obj, [CKA_VALUE, CKA_ID, CKA_LABEL])
+                        der = bytes(attrs[0])
+                        cka_id = bytes(attrs[1]) if attrs[1] else b""
+                        cert = x509.load_der_x509_certificate(der)
+                        thumb = hashlib.sha1(der).hexdigest()
+
+                        if thumb in _a3_cert_cache:
+                            continue  # same cert seen via another module path
+
+                        entry = _A3CertEntry(
+                            thumbprint=thumb,
+                            der=der,
+                            module_path=module_path,
+                            slot_id=slot_id,
+                            cka_id=cka_id,
+                            subject_name=cert.subject.rfc4514_string(),
+                            issuer_name=cert.issuer.rfc4514_string(),
+                            cpf=_extract_cpf(cert),
+                            not_before=cert.not_valid_before_utc.isoformat(),
+                            not_after=cert.not_valid_after_utc.isoformat(),
+                        )
+                        _a3_cert_cache[thumb] = entry
+                        out.append({
+                            "thumbprint": thumb,
+                            "subjectName": entry.subject_name,
+                            "issuerName": entry.issuer_name,
+                            "content": b64encode(der).decode("ascii"),
+                            "validityStart": entry.not_before,
+                            "validityEnd": entry.not_after,
+                            "pkiBrazil": {"cpf": entry.cpf},
+                            "_a3Module": module_path,
+                            "_a3Slot": slot_id,
+                        })
+                    except Exception as exc:
+                        log.debug("A3: skipping cert object on slot %d: %s", slot_id, exc)
+            finally:
+                try:
+                    session.closeSession()
+                except Exception:
+                    pass
+
+    log.info("A3: enumerated %d certificate(s) from %d module(s)",
+             len(out), len(_a3_modules_loaded))
+    return out
+
+
+def _ask_pin(token_label: str) -> Optional[str]:
+    """Prompt for the token PIN via zenity/kdialog. Never logged."""
+    for cmd in [
+        [
+            "zenity", "--password",
+            "--title=Big Advogados — PIN do Token A3",
+            f"--text=Digite o PIN do token:\n{token_label}",
+        ],
+        [
+            "kdialog", "--password",
+            f"Big Advogados — PIN do token A3:\n{token_label}",
+            "--title", "Big Advogados",
+        ],
+    ]:
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            if result.returncode == 0:
+                return result.stdout.strip()
+            return None  # user cancelled
+        except FileNotFoundError:
+            continue
+    return None
+
+
+def _get_a3_session(entry: _A3CertEntry):
+    """Return a logged-in session for the entry's slot, prompting PIN if needed."""
+    key = (entry.module_path, entry.slot_id)
+    cached = _a3_session_cache.get(key)
+    if cached is not None:
+        return cached
+
+    lib = _load_pkcs11_module(entry.module_path)
+    if lib is None:
+        return None
+
+    try:
+        session = lib.openSession(entry.slot_id, CKF_SERIAL_SESSION)
+    except Exception as exc:
+        log.error("A3: openSession failed for signing: %s", exc)
+        return None
+
+    try:
+        token_info = lib.getTokenInfo(entry.slot_id)
+        token_label = (token_info.label or "").strip() or "Token A3"
+    except Exception:
+        token_label = "Token A3"
+
+    pin = _ask_pin(token_label)
+    if not pin:
+        log.info("A3: user cancelled or empty PIN")
+        try:
+            session.closeSession()
+        except Exception:
+            pass
+        return None
+
+    try:
+        session.login(pin)
+    except Exception as exc:
+        log.error("A3: login failed (wrong PIN or token locked?): %s", exc)
+        try:
+            session.closeSession()
+        except Exception:
+            pass
+        return None
+    finally:
+        # Best-effort: scrub the local PIN reference.
+        pin = None  # noqa: F841
+
+    _a3_session_cache[key] = session
+    log.info("A3: logged in to slot %d (%s)", entry.slot_id, token_label)
+    return session
+
+
+def _find_a3_private_key(session, cka_id: bytes):
+    """Locate the private key object paired with a certificate via CKA_ID."""
+    try:
+        template: list[tuple] = [(CKA_CLASS, CKO_PRIVATE_KEY)]
+        if cka_id:
+            template.append((CKA_ID, cka_id))
+        objs = session.findObjects(template)
+        if objs:
+            return objs[0]
+        # Some tokens don't expose CKA_ID consistently — fall back to first private key.
+        if cka_id:
+            objs = session.findObjects([(CKA_CLASS, CKO_PRIVATE_KEY)])
+            return objs[0] if objs else None
+    except Exception as exc:
+        log.error("A3: findObjects(private key) failed: %s", exc)
+    return None
+
+
+def _sign_with_a3(entry: _A3CertEntry, payload: bytes, alg_name: str, prehashed: bool) -> Optional[bytes]:
+    """Sign ``payload`` on the token. Returns raw signature bytes, or None."""
+    if not PKCS11_AVAILABLE:
+        return None
+
+    session = _get_a3_session(entry)
+    if session is None:
+        return None
+
+    priv_key = _find_a3_private_key(session, entry.cka_id)
+    if priv_key is None:
+        log.error("A3: no private key for cert thumbprint=%s", entry.thumbprint)
+        return None
+
+    try:
+        if prehashed:
+            prefix = DIGEST_INFO_PREFIX.get(alg_name)
+            if prefix is None:
+                log.error("A3: unsupported prehashed digest: %s", alg_name)
+                return None
+            mech = Mechanism(PyKCS11.CKM_RSA_PKCS, None)
+            data_to_sign = prefix + payload
+        else:
+            mech_name = PKCS11_MECH_NAMES.get(alg_name)
+            if mech_name is None:
+                log.error("A3: unsupported digest for signData: %s", alg_name)
+                return None
+            mech_const = getattr(PyKCS11, mech_name)
+            mech = Mechanism(mech_const, None)
+            data_to_sign = payload
+
+        sig = session.sign(priv_key, data_to_sign, mech)
+        return bytes(sig)
+    except Exception as exc:
+        log.error("A3: sign failed: %s", exc)
+        # Drop the session so the next attempt re-prompts PIN (in case of CKR_USER_NOT_LOGGED_IN).
+        key = (entry.module_path, entry.slot_id)
+        cached = _a3_session_cache.pop(key, None)
+        if cached is not None:
+            try:
+                cached.logout()
+            except Exception:
+                pass
+            try:
+                cached.closeSession()
+            except Exception:
+                pass
+        return None
+
+
+def _close_a3_sessions() -> None:
+    """Logout and close every cached PKCS#11 session. Called on shutdown."""
+    for key, session in list(_a3_session_cache.items()):
+        try:
+            session.logout()
+        except Exception:
+            pass
+        try:
+            session.closeSession()
+        except Exception:
+            pass
+    _a3_session_cache.clear()
+    _a3_cert_cache.clear()
+    _a3_modules_loaded.clear()
+
+
+# ---------------------------------------------------------------------------
 # Signing
 # ---------------------------------------------------------------------------
 
@@ -426,7 +763,25 @@ def _resolve_digest_algorithm(alg: str) -> str:
 
 
 def sign_hash(thumbprint: str, hash_b64: str, digest_algorithm: str) -> Optional[str]:
-    """Sign a pre-computed hash. Returns base64 signature."""
+    """Sign a pre-computed hash. Returns base64 signature.
+
+    Routes to A3 (PKCS#11) when the thumbprint matches a token cert; otherwise
+    falls back to A1 (.p12) via the cryptography library.
+    """
+    hash_bytes = b64decode(hash_b64)
+    alg_name = _resolve_digest_algorithm(digest_algorithm)
+
+    if alg_name not in DIGEST_INFO_PREFIX:
+        log.error("Unsupported digest algorithm: %s", digest_algorithm)
+        return None
+
+    # A3 path
+    a3_entry = _a3_cert_cache.get(thumbprint)
+    if a3_entry is not None:
+        sig = _sign_with_a3(a3_entry, hash_bytes, alg_name, prehashed=True)
+        return b64encode(sig).decode("ascii") if sig else None
+
+    # A1 path (.p12)
     from cryptography.hazmat.primitives import hashes
     from cryptography.hazmat.primitives.asymmetric import padding, utils
 
@@ -434,19 +789,13 @@ def sign_hash(thumbprint: str, hash_b64: str, digest_algorithm: str) -> Optional
     if private_key is None:
         return None
 
-    hash_bytes = b64decode(hash_b64)
-    alg_name = _resolve_digest_algorithm(digest_algorithm)
-
     alg_map = {
         "sha1": hashes.SHA1(),
         "sha256": hashes.SHA256(),
         "sha384": hashes.SHA384(),
         "sha512": hashes.SHA512(),
     }
-    hash_alg = alg_map.get(alg_name)
-    if hash_alg is None:
-        log.error("Unsupported digest algorithm: %s", digest_algorithm)
-        return None
+    hash_alg = alg_map[alg_name]
 
     try:
         signature = private_key.sign(
@@ -461,7 +810,25 @@ def sign_hash(thumbprint: str, hash_b64: str, digest_algorithm: str) -> Optional
 
 
 def sign_data(thumbprint: str, data_b64: str, digest_algorithm: str) -> Optional[str]:
-    """Sign raw data. Returns base64 signature."""
+    """Sign raw data. Returns base64 signature.
+
+    Routes to A3 (PKCS#11) when the thumbprint matches a token cert; otherwise
+    falls back to A1 (.p12) via the cryptography library.
+    """
+    data_bytes = b64decode(data_b64)
+    alg_name = _resolve_digest_algorithm(digest_algorithm)
+
+    if alg_name not in PKCS11_MECH_NAMES:
+        log.error("Unsupported digest algorithm: %s", digest_algorithm)
+        return None
+
+    # A3 path
+    a3_entry = _a3_cert_cache.get(thumbprint)
+    if a3_entry is not None:
+        sig = _sign_with_a3(a3_entry, data_bytes, alg_name, prehashed=False)
+        return b64encode(sig).decode("ascii") if sig else None
+
+    # A1 path (.p12)
     from cryptography.hazmat.primitives import hashes
     from cryptography.hazmat.primitives.asymmetric import padding
 
@@ -469,19 +836,13 @@ def sign_data(thumbprint: str, data_b64: str, digest_algorithm: str) -> Optional
     if private_key is None:
         return None
 
-    data_bytes = b64decode(data_b64)
-    alg_name = _resolve_digest_algorithm(digest_algorithm)
-
     alg_map = {
         "sha1": hashes.SHA1(),
         "sha256": hashes.SHA256(),
         "sha384": hashes.SHA384(),
         "sha512": hashes.SHA512(),
     }
-    hash_alg = alg_map.get(alg_name)
-    if hash_alg is None:
-        log.error("Unsupported digest algorithm: %s", digest_algorithm)
-        return None
+    hash_alg = alg_map[alg_name]
 
     try:
         signature = private_key.sign(data_bytes, padding.PKCS1v15(), hash_alg)
@@ -679,18 +1040,26 @@ def handle_command(message: dict) -> None:
             reply_success(request_id, {"os": "Linux", "version": REPORTED_VERSION})
 
         elif command == "listCertificates":
-            certs = list_certificates_from_nss()
-            # Strip internal fields before sending to extension
-            clean_certs = []
+            certs = list_certificates_from_nss() + list_certificates_from_a3()
+            # De-duplicate by thumbprint (A3 wins over NSS for the same cert).
+            by_thumb: dict[str, dict] = {}
             for c in certs:
-                clean = {k: v for k, v in c.items() if not k.startswith("_")}
-                clean_certs.append(clean)
+                thumb = c.get("thumbprint", "")
+                if not thumb:
+                    continue
+                if thumb in by_thumb and not c.get("_a3Module"):
+                    continue  # keep the A3 entry already stored
+                by_thumb[thumb] = c
+            # Strip internal fields before sending to extension
+            clean_certs = [
+                {k: v for k, v in c.items() if not k.startswith("_")}
+                for c in by_thumb.values()
+            ]
             reply_success(request_id, clean_certs)
 
         elif command == "readCertificate":
             cert_thumb = request.get("certificateThumbprint", "")
-            certs = list_certificates_from_nss()
-            for c in certs:
+            for c in list_certificates_from_nss() + list_certificates_from_a3():
                 if c["thumbprint"] == cert_thumb:
                     reply_success(request_id, c["content"])
                     return
@@ -730,7 +1099,7 @@ def handle_command(message: dict) -> None:
             # extension can proceed to signData/signHash.
             cert_thumb = request.get("certificateThumbprint", "")
             cert_data = None
-            for c in list_certificates_from_nss():
+            for c in list_certificates_from_nss() + list_certificates_from_a3():
                 if c["thumbprint"] == cert_thumb:
                     cert_data = c
                     break
@@ -796,7 +1165,8 @@ def main() -> None:
     except Exception:
         log.exception("Fatal error in main loop")
     finally:
-        # Clear sensitive data
+        # Clear sensitive data — close A3 sessions before clearing caches.
+        _close_a3_sessions()
         _pfx_cache.clear()
         log.info("Shutdown complete")
 
