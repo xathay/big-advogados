@@ -15,7 +15,7 @@ Stack jurídica completa para advogados brasileiros no GNU/Linux — certificado
   <img src="https://img.shields.io/badge/Adwaita-1.0%2B-4A86CF?logo=gnome&logoColor=white" alt="Adwaita 1.0+">
   <img src="https://img.shields.io/badge/Platform-GNU%2FLinux-FCC624?logo=linux&logoColor=black" alt="Platform: GNU/Linux">
   <img src="https://img.shields.io/badge/Arch_Linux-1793D1?logo=arch-linux&logoColor=white" alt="Arch Linux">
-  <img src="https://img.shields.io/badge/Status-v1.4.0-green?logo=git&logoColor=white" alt="Status: v1.4.0">
+  <img src="https://img.shields.io/badge/Status-v1.4.1-green?logo=git&logoColor=white" alt="Status: v1.4.1">
 </p>
 
 > ⚠️ **Este projeto está em fase de testes.**
@@ -916,6 +916,14 @@ python -m src.main
 ---
 
 ## Changelog
+
+### v1.4.1 (2026-05-20)
+
+**Correção da versão exibida no diálogo Sobre:**
+- `CURRENT_VERSION` em `src/application.py` estava marcada como `1.3.0`
+  desde a 1.3.1 — o pacote era 1.4.0 mas o app exibia 1.3.0 no diálogo
+  "Sobre", causando confusão sobre qual versão estava instalada
+- Notas de versão (`set_release_notes`) atualizadas com 1.3.1 e 1.4.0
 
 ### v1.4.0 (2026-05-19)
 

@@ -16,7 +16,7 @@ from src.ui.password_settings import PasswordSettingsDialog
 log = logging.getLogger(__name__)
 
 APP_ID = "com.bigcertificados"
-CURRENT_VERSION = "1.3.0"
+CURRENT_VERSION = "1.4.1"
 
 
 class BigCertificadosApp(Adw.Application):
@@ -163,12 +163,31 @@ class BigCertificadosApp(Adw.Application):
         about.set_application_icon("bigcertificados")
         about.set_license_type(Gtk.License.MIT_X11)
         about.set_release_notes(
-            "<p>Novidades na versão 1.3.0:</p>"
+            "<p>Novidades na versão 1.4.1:</p>"
+            "<ul>"
+            "<li>Corrigida versão exibida no diálogo Sobre — estava marcada como 1.3.0 desde a 1.3.1, agora reflete o pacote instalado</li>"
+            "<li>Notas de versão atualizadas com 1.3.1 e 1.4.0</li>"
+            "</ul>"
+            "<p>Versão 1.4.0:</p>"
+            "<ul>"
+            "<li>big-drivers — gerenciador limpo de drivers PKCS#11 com download direto da fonte oficial, verificação SHA-256 e EULA visível antes da instalação</li>"
+            "<li>Primeiro driver suportado: SafeSign Identity Client (A.E.T. Europe via KPN Telecom)</li>"
+            "<li>Diálogo de instalação mostra fabricante, distribuidor licenciado, tamanho do download e resumo da licença antes de baixar</li>"
+            "<li>Corrigido nome do módulo SafeSign (libaetpkss.so) — detector agora reconhece o driver quando instalado</li>"
+            "</ul>"
+            "<p>Versão 1.3.1:</p>"
+            "<ul>"
+            "<li>Corrigido congelamento ao detectar token A3 — PKCS#11 movido para thread de background</li>"
+            "<li>Lista de drivers distingue módulo vendor instalado (verde) de fallback OpenSC (amarelo)</li>"
+            "<li>Mensagem de slot vazio sugere o pacote correto a instalar</li>"
+            "<li>Detecção do G&amp;D StarSign CUT com VID:PID adicional (1059:0017)</li>"
+            "</ul>"
+            "<p>Versão 1.3.0:</p>"
             "<ul>"
             "<li>WebSigner agora assina no e-SAJ com token A3 (PKCS#11), não só com A1 (.p12)</li>"
             "<li>Painel do WebSigner mostra se o token está conectado e qual modelo</li>"
             "<li>Diálogo de PIN do token via zenity/kdialog na hora da assinatura</li>"
-            "<li>Textos do painel reescritos sem jargão — orientado a advogados leigos</li>"
+            "<li>Textos do painel reescritos em linguagem objetiva, sem jargão técnico</li>"
             "<li>Removido link quebrado para extensão Web Signer da Mozilla AMO</li>"
             "</ul>"
             "<p>Versão 1.2.0:</p>"
