@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import logging
 from typing import Optional
 
@@ -101,9 +102,12 @@ class TokenDetectView(Gtk.ScrolledWindow):
             subtitle = f"Dispositivo em {devnode}"
             icon = "drive-removable-media-symbolic"
 
+        # Adw.PreferencesRow has use-markup=True by default, so unescaped
+        # characters like '&' (present in vendors like "G&D") break Pango
+        # parsing and render the label as blank.
         row = Adw.ActionRow()
-        row.set_title(title)
-        row.set_subtitle(subtitle)
+        row.set_title(html.escape(title))
+        row.set_subtitle(html.escape(subtitle))
         row.set_icon_name(icon)
         row.set_activatable(True)
 

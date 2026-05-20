@@ -15,7 +15,7 @@ Stack jurídica completa para advogados brasileiros no GNU/Linux — certificado
   <img src="https://img.shields.io/badge/Adwaita-1.0%2B-4A86CF?logo=gnome&logoColor=white" alt="Adwaita 1.0+">
   <img src="https://img.shields.io/badge/Platform-GNU%2FLinux-FCC624?logo=linux&logoColor=black" alt="Platform: GNU/Linux">
   <img src="https://img.shields.io/badge/Arch_Linux-1793D1?logo=arch-linux&logoColor=white" alt="Arch Linux">
-  <img src="https://img.shields.io/badge/Status-v1.4.2-green?logo=git&logoColor=white" alt="Status: v1.4.2">
+  <img src="https://img.shields.io/badge/Status-v1.4.3-green?logo=git&logoColor=white" alt="Status: v1.4.3">
 </p>
 
 > ⚠️ **Este projeto está em fase de testes.**
@@ -916,6 +916,26 @@ python -m src.main
 ---
 
 ## Changelog
+
+### v1.4.3 (2026-05-20)
+
+**UX da detecção de token A3:**
+- Corrigido **título em branco** na lista de tokens conectados — o `&`
+  em vendors como `G&D` era interpretado como início de entidade pelo
+  Pango (`use-markup=True` padrão do `Adw.ActionRow`), causando falha
+  de parsing e label vazio. Fix: escape via `html.escape()` no
+  [src/ui/token_detect_view.py](src/ui/token_detect_view.py)
+- **Mensagem específica para token sem certificado emitido** — antes
+  a UI mostrava apenas "Nenhum slot de token disponível" quando o
+  chip não estava provisionado, levando o usuário a achar que o app
+  estava com bug. Agora detecta o caso (driver vendor presente +
+  slots vazios) e orienta:
+  > "Token reconhecido, mas sem certificado emitido. Provisione o
+  > token na sua certificadora (Soluti, Valid, Certisign, Serasa)
+  > antes de usar."
+- Toasts de status do token agora ficam **10 segundos** visíveis
+  quando contêm orientação acionável (em vez de 3s padrão) — usuário
+  tem tempo de ler antes de sumir
 
 ### v1.4.2 (2026-05-20)
 

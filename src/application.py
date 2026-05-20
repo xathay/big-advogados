@@ -16,7 +16,7 @@ from src.ui.password_settings import PasswordSettingsDialog
 log = logging.getLogger(__name__)
 
 APP_ID = "com.bigcertificados"
-CURRENT_VERSION = "1.4.2"
+CURRENT_VERSION = "1.4.3"
 
 
 class BigCertificadosApp(Adw.Application):
@@ -163,7 +163,13 @@ class BigCertificadosApp(Adw.Application):
         about.set_application_icon("bigcertificados")
         about.set_license_type(Gtk.License.MIT_X11)
         about.set_release_notes(
-            "<p>Novidades na versão 1.4.2:</p>"
+            "<p>Novidades na versão 1.4.3:</p>"
+            "<ul>"
+            "<li>Corrigido título em branco na lista de tokens conectados — o &amp; em vendors como G&amp;D era interpretado como entidade Pango e quebrava a renderização do label</li>"
+            "<li>Mensagem específica quando o token é reconhecido mas o chip ainda não foi provisionado pela certificadora — antes saía apenas \"Nenhum slot de token disponível\"</li>"
+            "<li>Mensagens de status do token agora ficam visíveis por 10 segundos quando contêm orientação acionável (em vez dos 3 segundos padrão)</li>"
+            "</ul>"
+            "<p>Versão 1.4.2:</p>"
             "<ul>"
             "<li>Corrigido bug crítico do WebSigner em produção — native host falhava ao importar TokenDatabase quando rodando do pacote instalado, fazendo o e-SAJ mostrar lista de certificados vazia mesmo com token plugado e drivers instalados</li>"
             "<li>Caminho do pacote agora é adicionado ao sys.path automaticamente quando o native host é lançado pelo navegador</li>"

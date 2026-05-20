@@ -694,17 +694,35 @@ class MainWindow(Adw.ApplicationWindow):
             self._prompt_pin(slots[0])
             return False
 
-        # No slots: most often the loaded module is the OpenSC fallback
-        # for a token that needs a vendor driver. Tell the user which
-        # package would actually drive this hardware.
+        # Three reasons getSlotList(tokenPresent=True) returns empty:
+        #
+        # 1. No vendor driver installed — the loaded module is the OpenSC
+        #    fallback that doesn't know how to talk to this token. Suggest
+        #    the right package.
         if vid and pid and self._token_db.find_vendor_pkcs11_library(vid, pid) is None:
             pkg = self._token_db.suggest_package(vid, pid)
             if pkg:
                 self._set_status(
                     f"Token detectado, mas o driver instalado não o reconhece — "
                     f"instale '{pkg}'",
+                    timeout=10,
                 )
                 return False
+
+        # 2. Vendor driver IS installed (so the reader is recognized) but
+        #    the chip itself has no certificate provisioned. This is the
+        #    most common case for users testing with a fresh token that
+        #    never went through a Certificadora.
+        if vid and pid and self._token_db.find_vendor_pkcs11_library(vid, pid) is not None:
+            self._set_status(
+                "Token reconhecido, mas sem certificado emitido. "
+                "Provisione o token na sua certificadora "
+                "(Soluti, Valid, Certisign, Serasa) antes de usar.",
+                timeout=10,
+            )
+            return False
+
+        # 3. Catch-all for the rare case we don't have VID/PID info.
         self._set_status("Nenhum slot de token disponível")
         return False
 
@@ -751,9 +769,9 @@ class MainWindow(Adw.ApplicationWindow):
         self._ensure_certs_view().reset_a3_view()
         return False
 
-    def _set_status(self, text: str) -> None:
+    def _set_status(self, text: str, timeout: int = 3) -> None:
         toast = Adw.Toast(title=text)
-        toast.set_timeout(3)
+        toast.set_timeout(timeout)
         self._toast_overlay.add_toast(toast)
 
     def setup_browsers(self) -> None:
