@@ -38,6 +38,7 @@ Stack jurídica completa para advogados brasileiros no GNU/Linux — certificado
   - [Gerenciador de Drivers & Tokens](#gerenciador-de-drivers--tokens)
   - [Busca Global](#busca-global)
   - [Proteção por Senha](#proteção-por-senha)
+  - [Transcritor de Áudio com Cadeia de Custódia](#transcritor-de-áudio-com-cadeia-de-custódia)
 - [Soluções Exclusivas](#soluções-exclusivas)
   - [PJeOffice Pro — Escala HiDPI Automática](#pjeoffice-pro--escala-hidpi-automática)
   - [Brave — Configuração Automática para PJe Office](#brave--configuração-automática-para-pje-office)
@@ -81,6 +82,7 @@ quem precisa acessar sistemas judiciais eletrônicos como PJe, PROJUDI e e-SAJ.
 | **WebSigner** | Assinatura digital no navegador para e-SAJ, PJe e outros sistemas judiciais |
 | **VidaaS Connect** | Assinatura em nuvem via Valid Certificadora |
 | **Proteção por senha** | PBKDF2-HMAC-SHA256 com 600.000 iterações |
+| **Transcritor de áudio** | Transcrição forense local com SHA-256, declaração técnica e PDF formatado |
 
 ## Screenshots
 
@@ -337,6 +339,79 @@ O Big Advogados inclui um sistema de busca global acessível via
 - **Limite de tentativas** — 3 erros antes de bloquear o acesso
 - **Permissões restritas** — arquivo `applock.json` com `chmod 0600`
 - **Nenhum segredo em código** — senhas nunca são armazenadas em texto plano
+
+### Transcritor de Áudio com Cadeia de Custódia
+
+Feature CLI orientada a **uso forense** — pensada para áudios de WhatsApp,
+Telegram e ligações recebidas como prova em processo. Em um comando,
+gera transcrição com validade probatória pronta para juntar aos autos.
+
+**Pipeline:**
+
+1. **SHA-256** do arquivo é calculado **antes** de qualquer processamento
+   (cadeia de custódia: o hash prova integridade do áudio original).
+2. **faster-whisper** (modelo `large-v3` por default) roda **localmente**
+   — nenhum áudio sai da máquina. Sem nuvem, sem telemetria.
+3. **Cinco saídas** geradas no mesmo diretório do áudio:
+
+| Arquivo | Conteúdo |
+|---|---|
+| `<nome>.transcricao.txt` | Texto plano com timestamps SRT por segmento |
+| `<nome>.transcricao.md` | Markdown com cabeçalho de metadados + cláusula de prevalência |
+| `<nome>.transcricao.pdf` | **PDF formatado** com capa, identidade visual do escritório e declaração formal do advogado |
+| `<nome>.metadata.json` | JSON estruturado (integração com outras ferramentas) |
+| `<nome>.segments.csv` | Segmentos para edição manual |
+
+**Características do PDF:**
+
+- Capa com tabela de cadeia de custódia em destaque (border-left oxblood)
+- Seção I — Objeto
+- Seção II — Ferramenta utilizada (faster-whisper versão + repositório público + parâmetros)
+- Seção III — Cadeia de custódia detalhada (SHA-256, hostname, Python, ambiente)
+- Seção IV — Transcrição em tabela 2-col (`tempo` | `conteúdo`) com header navy e linhas zebradas
+- Encerramento — declaração formal assinada pelo advogado configurado
+- Cláusula obrigatória: **"Em caso de divergência entre esta transcrição e o áudio original, prevalece integralmente o áudio gravado, juntado em sua integridade nativa."**
+
+**Como usar:**
+
+```bash
+# Comando único — gera todos os 5 formatos
+big-advogados transcrever audio.m4a
+
+# Modelo específico (mais rápido, menos preciso)
+big-advogados transcrever audio.m4a --modelo medium
+
+# Outro idioma
+big-advogados transcrever audio.m4a --idioma en
+
+# Apenas PDF
+big-advogados transcrever audio.m4a --saida pdf
+
+# Lote
+big-advogados transcrever *.m4a
+```
+
+**Menu contextual:** após `makepkg -si`, no Nautilus/Nemo/Caja clique-direito num
+arquivo de áudio → **"Transcrever áudio com BIG"** dispara o mesmo pipeline.
+
+**Configuração:** `~/.config/big-advogados/transcritor.toml` (criado automaticamente
+na primeira execução). Permite definir:
+- Modelo (`tiny`, `base`, `small`, `medium`, `large-v3`)
+- Device (`auto`, `cpu`, `cuda`) — detecta GPU NVIDIA automaticamente
+- Dados do advogado (nome, OAB, escritório, CNPJ) usados na declaração
+- Logo e barra-rodapé em `~/.config/big-advogados/identity/`
+
+**Reprodutibilidade jurídica:**
+
+Parâmetros determinísticos (`temperature=0.0`, `beam_size=10`, VAD ativo). Qualquer
+perito que aplique os mesmos parâmetros sobre o mesmo arquivo obtém o mesmo
+SHA-256 e transcrição equivalente. O PDF registra todos os parâmetros usados.
+
+> ⚠️ **Restrição de design:** A transcrição é instrumento auxiliar; o áudio
+> original é a prova primária. O Big Advogados **nunca** usa IA generativa para
+> "polir" ou corrigir a transcrição — qualquer pós-processamento abriria flanco
+> para questionamento em juízo. O texto entregue é exatamente o que o Whisper
+> produziu.
 
 ---
 

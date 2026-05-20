@@ -29,10 +29,14 @@ depends=(
     'binutils'  # ar — extrai .deb no instalador de drivers (big-drivers)
     'tar'       # data.tar.zst dentro do .deb (big-drivers)
     'polkit'    # autorização do helper big-drivers-install
+    'python-typer'  # CLI do transcritor (big-advogados transcrever ...)
 )
 optdepends=(
     'pcsc-tools: Diagnóstico de leitores PC/SC (pcsc_scan)'
     'zenity: Diálogo de senha para WebSigner (alternativa: kdialog)'
+    'python-faster-whisper: Transcritor de áudio (modelo Whisper local, ~3GB no primeiro uso)'
+    'ffmpeg: Extração de duração/formato dos áudios no transcritor'
+    'ttf-ubuntu-font-family: Tipografia padrão dos PDFs do transcritor'
 )
 source=()
 sha256sums=()
@@ -47,7 +51,7 @@ package() {
     # Remove __pycache__
     find "${_appdir}" -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
 
-    # Launcher script
+    # Launcher script (GUI)
     install -dm755 "${pkgdir}/usr/bin"
     cat > "${pkgdir}/usr/bin/${pkgname}" << 'EOF'
 #!/usr/bin/env bash
@@ -55,6 +59,18 @@ cd /usr/lib/big-certificados
 exec python3 -m src.main "$@"
 EOF
     chmod 755 "${pkgdir}/usr/bin/${pkgname}"
+
+    # Launcher script (CLI — transcritor e futuros subcomandos)
+    cat > "${pkgdir}/usr/bin/big-advogados" << 'EOF'
+#!/usr/bin/env bash
+cd /usr/lib/big-certificados
+exec python3 -m src.transcritor.cli "$@"
+EOF
+    chmod 755 "${pkgdir}/usr/bin/big-advogados"
+
+    # File-manager action para "Transcrever áudio com BIG"
+    install -Dm644 "${startdir}/data/file-manager-actions/transcrever-audio.desktop" \
+        "${pkgdir}/usr/share/file-manager/actions/transcrever-audio.desktop"
 
     # Desktop entry
     install -Dm644 "${startdir}/data/com.bigcertificados.desktop" \
