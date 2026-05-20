@@ -15,7 +15,7 @@ Stack jurídica completa para advogados brasileiros no GNU/Linux — certificado
   <img src="https://img.shields.io/badge/Adwaita-1.0%2B-4A86CF?logo=gnome&logoColor=white" alt="Adwaita 1.0+">
   <img src="https://img.shields.io/badge/Platform-GNU%2FLinux-FCC624?logo=linux&logoColor=black" alt="Platform: GNU/Linux">
   <img src="https://img.shields.io/badge/Arch_Linux-1793D1?logo=arch-linux&logoColor=white" alt="Arch Linux">
-  <img src="https://img.shields.io/badge/Status-v1.4.1-green?logo=git&logoColor=white" alt="Status: v1.4.1">
+  <img src="https://img.shields.io/badge/Status-v1.4.2-green?logo=git&logoColor=white" alt="Status: v1.4.2">
 </p>
 
 > ⚠️ **Este projeto está em fase de testes.**
@@ -916,6 +916,25 @@ python -m src.main
 ---
 
 ## Changelog
+
+### v1.4.2 (2026-05-20)
+
+**Correção crítica do WebSigner em produção:**
+- `native_host.py` falhava ao importar `TokenDatabase` quando rodando
+  do pacote instalado (`/usr/lib/big-certificados/src/websigner/native_host.py`),
+  porque o native host é lançado pelo navegador como script standalone —
+  o diretório-pai (que contém `src/`) não fica no `sys.path` automaticamente
+- Sintoma: e-SAJ mostrava lista de certificados vazia mesmo com token
+  plugado, drivers instalados (SafeSign / libaet) e PC/SC funcionando
+  — o log do native host registrava `WARNING A3: could not import
+  TokenDatabase: No module named 'src.certificate'` seguido de
+  `INFO A3: enumerated 0 certificate(s) from 0 module(s)`
+- Fix: `native_host.py` agora insere `Path(__file__).parent.parent.parent`
+  no `sys.path` no boot, resolvendo o import tanto em dev mode quanto
+  no pacote instalado
+- Bug afetava TODOS os usuários em produção desde a 1.2.0 (lançamento
+  do WebSigner) — em dev mode o app rodava via `python -m src.main`,
+  mascarando o problema
 
 ### v1.4.1 (2026-05-20)
 

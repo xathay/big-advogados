@@ -16,7 +16,7 @@ from src.ui.password_settings import PasswordSettingsDialog
 log = logging.getLogger(__name__)
 
 APP_ID = "com.bigcertificados"
-CURRENT_VERSION = "1.4.1"
+CURRENT_VERSION = "1.4.2"
 
 
 class BigCertificadosApp(Adw.Application):
@@ -163,7 +163,12 @@ class BigCertificadosApp(Adw.Application):
         about.set_application_icon("bigcertificados")
         about.set_license_type(Gtk.License.MIT_X11)
         about.set_release_notes(
-            "<p>Novidades na versão 1.4.1:</p>"
+            "<p>Novidades na versão 1.4.2:</p>"
+            "<ul>"
+            "<li>Corrigido bug crítico do WebSigner em produção — native host falhava ao importar TokenDatabase quando rodando do pacote instalado, fazendo o e-SAJ mostrar lista de certificados vazia mesmo com token plugado e drivers instalados</li>"
+            "<li>Caminho do pacote agora é adicionado ao sys.path automaticamente quando o native host é lançado pelo navegador</li>"
+            "</ul>"
+            "<p>Versão 1.4.1:</p>"
             "<ul>"
             "<li>Corrigida versão exibida no diálogo Sobre — estava marcada como 1.3.0 desde a 1.3.1, agora reflete o pacote instalado</li>"
             "<li>Notas de versão atualizadas com 1.3.1 e 1.4.0</li>"

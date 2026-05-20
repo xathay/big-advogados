@@ -24,6 +24,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
+# The native host is launched as a standalone script by the browser, so the
+# package root (which contains `src/`) is not on sys.path by default. Add it
+# explicitly so `from src.certificate.token_database import TokenDatabase`
+# resolves both in dev mode and in the installed package (where the script
+# lives at /usr/lib/big-certificados/src/websigner/native_host.py).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+
 # ---------------------------------------------------------------------------
 # Logging — write to file so it doesn't contaminate stdout (native messaging)
 # ---------------------------------------------------------------------------
