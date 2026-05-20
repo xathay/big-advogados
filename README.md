@@ -15,7 +15,7 @@ Stack jurídica completa para advogados brasileiros no GNU/Linux — certificado
   <img src="https://img.shields.io/badge/Adwaita-1.0%2B-4A86CF?logo=gnome&logoColor=white" alt="Adwaita 1.0+">
   <img src="https://img.shields.io/badge/Platform-GNU%2FLinux-FCC624?logo=linux&logoColor=black" alt="Platform: GNU/Linux">
   <img src="https://img.shields.io/badge/Arch_Linux-1793D1?logo=arch-linux&logoColor=white" alt="Arch Linux">
-  <img src="https://img.shields.io/badge/Status-v1.3.0-green?logo=git&logoColor=white" alt="Status: v1.3.0">
+  <img src="https://img.shields.io/badge/Status-v1.4.0-green?logo=git&logoColor=white" alt="Status: v1.4.0">
 </p>
 
 > ⚠️ **Este projeto está em fase de testes.**
@@ -916,6 +916,66 @@ python -m src.main
 ---
 
 ## Changelog
+
+### v1.4.0 (2026-05-19)
+
+**big-drivers — gerenciador limpo de drivers PKCS#11:**
+- Novo módulo `src/drivers/` substitui o fluxo antigo (`yay --noconfirm`
+  escondido) por um instalador que respeita fabricante e usuário
+- Catálogo declarativo em `data/drivers/*.toml` — cada driver lista
+  fabricante, distribuidor licenciado, fonte oficial (URL + SHA-256),
+  caminho da licença dentro do arquivo, e exatamente o que extrair
+  para onde
+- Primeiro driver suportado: **SafeSign Identity Client 4.5.0.0** da
+  A.E.T. Europe (via KPN Telecom, distribuidora licenciada)
+- Helper privilegiado (`scripts/big-drivers-install.py`) executado via
+  `pkexec` com política dedicada — re-verifica SHA-256, recusa symlink
+  no source (TOCTOU), confina escrita a `/usr/local/lib/big-drivers/<id>/`
+- Novo diálogo (`src/ui/driver_install_dialog.py`): mostra fabricante,
+  distribuidor licenciado, tamanho do download e resumo da licença
+  ANTES do download; exibe EULA modal e só aceita instalar depois do
+  clique em "Aceito a licença"
+- `token_database`: `search_paths` das entradas G&D e SafeSign agora
+  preferem `/usr/local/lib/big-drivers/safesign/lib/` antes dos paths
+  padrão de distro
+
+**Correção do nome do módulo SafeSign:**
+- O `.deb` oficial da A.E.T. Europe instala `libaetpkss.so` (PKCS
+  Subsystem), não `libaetpkcs11.so` — detector nunca achava o driver
+  mesmo com SafeSign instalado
+- Ajustado `_MODULE_TO_PACKAGE` e entradas G&D/SafeSign em
+  `token_database.py`
+
+### v1.3.1 (2026-05-19)
+
+**Correção do congelamento ao detectar token A3:**
+- `C_Initialize` do PKCS#11 bloqueava o GTK main loop por vários
+  segundos em tokens recém-conectados; agora roda em thread de
+  background com retorno via `GLib.idle_add`
+- Sintoma corrigido: app travado e e-SAJ exibindo "Não foi possível
+  completar solicitação" porque o native host não respondia a tempo
+
+**Distinguir driver vendor de fallback OpenSC:**
+- `token_database.find_vendor_pkcs11_library()` retorna só driver
+  vendor — sem fallback OpenSC — para o callsite distinguir "driver
+  real instalado" de "vamos tentar OpenSC e torcer"
+- `a3_manager.try_all_modules()` libera a lib PKCS#11 entre tentativas
+  (alguns drivers brigam pelo dispositivo USB se ficam initialized em
+  paralelo) e tenta OpenSC primeiro como probe seguro
+- Mensagem de slot vazio agora sugere o pacote vendor a instalar em
+  vez de só "nenhum slot disponível"
+- `token_detect_view`: linha do token distingue verde "Módulo OK"
+  (driver vendor presente) de amarelo "Driver: <pkg>" (só OpenSC) —
+  OpenSC raramente funciona em token ICP-Brasil, então prometer "OK"
+  com ele engana o usuário
+
+**Detecção do G&D StarSign CUT:**
+- VID:PID `1059:0017` adicionado ao catálogo
+- Entradas G&D agora apontam `libaetpkss.so` (SafeSign Identity
+  Client) com `search_paths` priorizando o caminho do pacote AUR
+- `libstarsignpkcs11.so` mapeia para `safesignidentityclient` em
+  `_MODULE_TO_PACKAGE` — `libstarsignpkcs11.so` é raro fora de
+  ambiente corporativo
 
 ### v1.3.0 (2026-05-19)
 
