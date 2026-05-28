@@ -1,0 +1,48 @@
+# big-certificados — scriptlet de pós-instalação (pacman/ALPM)
+
+_reload_udev() {
+    # Aplica 70-crypto-tokens.rules sem exigir reboot.
+    if command -v udevadm >/dev/null 2>&1; then
+        udevadm control --reload-rules >/dev/null 2>&1 || true
+        udevadm trigger --subsystem-match=usb >/dev/null 2>&1 || true
+    fi
+}
+
+_ensure_plugdev() {
+    # As regras udev usam GROUP="plugdev"; no Arch base esse grupo não existe.
+    getent group plugdev >/dev/null 2>&1 || groupadd -r plugdev >/dev/null 2>&1 || true
+}
+
+_enable_pcscd() {
+    # Sem o pcscd o leitor PC/SC não sobe e o token A3 não é reconhecido
+    # no e-SAJ (TJSP) nem no eproc (TJMG). Socket-activated: sobe sob demanda.
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl enable --now pcscd.socket >/dev/null 2>&1 || true
+    fi
+}
+
+post_install() {
+    _ensure_plugdev
+    _reload_udev
+    _enable_pcscd
+    cat <<'MSG'
+==> big-certificados instalado.
+    Para o certificado digital funcionar no navegador (e-SAJ/TJSP, eproc/TJMG):
+      1. Abra o app -> Sistemas -> e-SAJ -> "Configurar WebSigner"
+         (registra o conector nativo e a extensão no Firefox).
+      2. Instale a extensão "Web Signer" no seu navegador, se ainda não a tiver.
+      3. Conecte o token A3 — o leitor PC/SC (pcscd) já foi ativado.
+    Token não aparece? Reabra a sessão grafica ou rode:
+      sudo systemctl start pcscd.socket
+MSG
+}
+
+post_upgrade() {
+    _ensure_plugdev
+    _reload_udev
+    _enable_pcscd
+}
+
+post_remove() {
+    _reload_udev
+}

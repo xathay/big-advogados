@@ -23,9 +23,9 @@ class WebSignerSetupDialog(Adw.Dialog):
 
     def __init__(self, on_finished: Optional[Callable[[], None]] = None) -> None:
         super().__init__()
-        self.set_title("Configurar e-SAJ")
+        self.set_title("Configurar assinatura")
         self.set_content_width(620)
-        self.set_content_height(540)
+        self.set_content_height(740)
 
         self._on_finished = on_finished
         self._build_ui()
@@ -40,24 +40,56 @@ class WebSignerSetupDialog(Adw.Dialog):
         main_box.set_margin_start(16)
         main_box.set_margin_end(16)
 
-        title = Gtk.Label(label="Configurar e-SAJ — TJSP")
+        title = Gtk.Label(label="Configurar assinatura nos tribunais")
         title.add_css_class("title-3")
         main_box.append(title)
 
         info = Gtk.Label(
             label=(
-                "Configura seu navegador para assinar petições no e-SAJ TJSP "
-                "com certificado digital.\n\n"
-                "Funciona com token A3 (USB, reconhecido automaticamente quando "
-                "plugado) ou certificado A1 (arquivo .p12). Em Firefox versão "
-                "normal, esta configuração precisa ser refeita após reiniciar "
-                "o navegador — use Firefox ESR para evitar isso."
+                "Prepara o navegador para assinar petições com seu certificado "
+                "digital — token A3 (USB) ou A1 (arquivo .p12) — no e-SAJ (TJSP), "
+                "eproc (TJMG e demais) e outros sistemas judiciais."
             )
         )
         info.add_css_class("dim-label")
         info.set_wrap(True)
         info.set_justify(Gtk.Justification.CENTER)
         main_box.append(info)
+
+        # ── Explicação clara para o advogado: a peça que costuma faltar ──
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        card.add_css_class("card")
+        card.set_margin_top(4)
+        for w in ("set_margin_top", "set_margin_bottom", "set_margin_start", "set_margin_end"):
+            getattr(card, w)(12)
+
+        card_title = Gtk.Label(label="Sobre o navegador — leia antes")
+        card_title.add_css_class("heading")
+        card_title.set_halign(Gtk.Align.START)
+        card.append(card_title)
+
+        card_body = Gtk.Label(
+            label=(
+                "A assinatura só funciona se o navegador tiver a extensão de "
+                "assinatura. Como cada navegador trata isso de um jeito:\n\n"
+                "• Firefox ESR (recomendado): o Big Advogados instala a ponte "
+                "automaticamente e ela continua valendo depois de reiniciar. "
+                "Nada mais a fazer.\n"
+                "• Firefox comum: por uma trava de segurança do próprio Firefox, "
+                "a ponte automática não carrega. Use o Firefox ESR, ou instale "
+                "a extensão oficial “Web Signer” pela loja de extensões.\n"
+                "• Chrome / Brave / Edge: instale a extensão oficial "
+                "“Web Signer” pela Chrome Web Store.\n\n"
+                "Em todos os casos, a assinatura em si — com seu certificado e "
+                "sua senha — é feita aqui pelo Big Advogados; a extensão é só a "
+                "ponte entre o site do tribunal e o seu certificado."
+            )
+        )
+        card_body.set_wrap(True)
+        card_body.set_xalign(0.0)
+        card_body.set_halign(Gtk.Align.START)
+        card.append(card_body)
+        main_box.append(card)
 
         self._status_label = Gtk.Label(label="Pronto para configurar")
         self._status_label.set_halign(Gtk.Align.START)
@@ -67,8 +99,8 @@ class WebSignerSetupDialog(Adw.Dialog):
 
         log_frame = Gtk.Frame()
         log_scroll = Gtk.ScrolledWindow()
-        log_scroll.set_vexpand(True)
-        log_scroll.set_min_content_height(260)
+        log_scroll.set_min_content_height(170)
+        log_scroll.set_max_content_height(170)
 
         self._log_view = Gtk.TextView()
         self._log_view.set_editable(False)
@@ -92,9 +124,22 @@ class WebSignerSetupDialog(Adw.Dialog):
         log_frame.set_child(log_scroll)
         main_box.append(log_frame)
 
+        # Conteúdo rolável: nasce mostrando tudo na altura padrão, e se a
+        # janela for encolhida o usuário rola em vez de ver o texto cortado.
+        scroller = Gtk.ScrolledWindow()
+        scroller.set_vexpand(True)
+        scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroller.set_child(main_box)
+        toolbar.set_content(scroller)
+
+        # Botões numa barra inferior fixa (padrão GNOME) — sempre visíveis,
+        # não rolam junto com o conteúdo.
         btn_box = Gtk.Box(spacing=12, homogeneous=True)
         btn_box.set_halign(Gtk.Align.END)
         btn_box.set_margin_top(8)
+        btn_box.set_margin_bottom(12)
+        btn_box.set_margin_start(16)
+        btn_box.set_margin_end(16)
 
         self._close_btn = Gtk.Button(label="Cancelar")
         self._close_btn.connect("clicked", lambda _: self.close())
@@ -105,8 +150,7 @@ class WebSignerSetupDialog(Adw.Dialog):
         self._run_btn.connect("clicked", self._on_run)
         btn_box.append(self._run_btn)
 
-        main_box.append(btn_box)
-        toolbar.set_content(main_box)
+        toolbar.add_bottom_bar(btn_box)
         self.set_child(toolbar)
 
     def _log_append(self, text: str) -> None:
@@ -167,11 +211,13 @@ class WebSignerSetupDialog(Adw.Dialog):
             self._log_append("     — reconhecido automaticamente")
             self._log_append("  2. Ou configure o A1 (.p12) na seção")
             self._log_append("     'Certificados' do painel")
-            self._log_append("  3. Abra o e-SAJ TJSP e faça login")
+            self._log_append("  3. Abra o e-SAJ / eproc e faça login")
             self._log_append("")
-            self._log_append("  Em Firefox versão normal, refaça esta tela")
-            self._log_append("  após reiniciar o navegador (use Firefox ESR")
-            self._log_append("  para evitar esse passo extra).")
+            self._log_append("  Navegador:")
+            self._log_append("  • Firefox ESR — pronto, nada a fazer.")
+            self._log_append("  • Firefox comum / Chrome / Brave — instale a")
+            self._log_append("    extensão oficial 'Web Signer' pela loja;")
+            self._log_append("    o Big Advogados já é o conector por trás dela.")
             self._log_append("═══════════════════════════════════════════")
 
             self._set_status("Configuração concluída")

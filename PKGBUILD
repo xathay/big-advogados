@@ -6,6 +6,7 @@ pkgdesc="Stack jurídica para advogados brasileiros — certificados digitais, a
 arch=('any')
 url="https://github.com/xathay/big-advogados"
 license=('MIT')
+install="${pkgname}.install"
 depends=(
     'python'
     'python-gobject'
@@ -30,10 +31,12 @@ depends=(
     'tar'       # data.tar.zst dentro do .deb (big-drivers)
     'polkit'    # autorização do helper big-drivers-install
     'python-typer'  # CLI do transcritor (big-advogados transcrever ...)
+    'zenity'    # diálogo de senha (A1) e PIN (A3) do WebSigner — sem ele a assinatura falha
 )
 optdepends=(
     'pcsc-tools: Diagnóstico de leitores PC/SC (pcsc_scan)'
-    'zenity: Diálogo de senha para WebSigner (alternativa: kdialog)'
+    'kdialog: Diálogo de senha/PIN do WebSigner em ambientes KDE (alternativa ao zenity)'
+    'firefox-esr-bin: Navegador que aceita a ponte WebPKI embutida sem instalar extensão da loja'
     'python-faster-whisper: Transcritor de áudio (modelo Whisper local, ~3GB no primeiro uso)'
     'ffmpeg: Extração de duração/formato dos áudios no transcritor'
     'ttf-ubuntu-font-family: Tipografia padrão dos PDFs do transcritor'
@@ -103,6 +106,18 @@ EOF
     install -m644 "${startdir}/data/drivers/"*.toml "${_appdir}/data/drivers/"
     install -Dm644 "${startdir}/data/polkit/org.bigcommunity.drivers.policy" \
         "${pkgdir}/usr/share/polkit-1/actions/org.bigcommunity.drivers.policy"
+
+    # Web Signer (e-SAJ) — força a instalação da extensão oficial da Chrome
+    # Web Store nos navegadores Chromium, pro advogado não instalar à mão.
+    # Firefox fica de fora: a extensão foi blocklistada pela Mozilla — lá o
+    # caminho é a ponte WebPKI embutida (Firefox ESR/Developer).
+    for _poldir in \
+        "etc/opt/chrome/policies/managed" \
+        "etc/chromium/policies/managed" \
+        "etc/brave/policies/managed"; do
+        install -Dm644 "${startdir}/data/browser-policies/big-websigner.json" \
+            "${pkgdir}/${_poldir}/big-websigner.json"
+    done
 
     # License
     install -Dm644 "${startdir}/LICENSE" \

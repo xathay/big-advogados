@@ -138,8 +138,36 @@ class A1CertificateView(Gtk.ScrolledWindow):
             self._current_password = password
             self._cert_info = cert_info
             self._show_certificate(cert_info)
+            # Provisiona o A1 nos navegadores automaticamente: é o que o
+            # eproc/e-CAC exige (TLS client-auth). Sem isso o advogado teria
+            # de lembrar de clicar "Instalar no Navegador" à parte.
+            self._auto_install_browsers(path, password)
 
         show_pfx_password_dialog(self, pfx_path, on_success)
+
+    def _auto_install_browsers(self, pfx_path: str, password: str) -> None:
+        """Importa o A1 no NSS de todos os navegadores, em background."""
+        self._show_toast("Instalando certificado nos navegadores…")
+
+        def install_thread() -> None:
+            results = self._a1_manager.install_in_all_browsers(pfx_path, password)
+            GLib.idle_add(self._on_auto_install_done, results)
+
+        threading.Thread(target=install_thread, daemon=True).start()
+
+    def _on_auto_install_done(self, results: dict[str, bool]) -> bool:
+        total = len(results)
+        success = sum(1 for v in results.values() if v)
+        if total == 0:
+            self._show_toast("Certificado pronto (nenhum navegador detectado)")
+        elif success == total:
+            self._show_toast(
+                f"Certificado instalado em {total} navegador(es) — "
+                "reabra o navegador para usar no eproc/e-CAC"
+            )
+        else:
+            self._show_toast(f"Certificado instalado em {success}/{total} navegador(es)")
+        return False
 
     def _show_certificate(self, cert: CertificateInfo) -> None:
         """Display the loaded certificate details."""
