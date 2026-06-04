@@ -25,6 +25,9 @@ Thumbs.db
 applock.json
 settings.json
 
+# Documentos de teste / amostras (não pertencem ao repo)
+*.pdf
+
 # Planning docs (internal)
 bigcertificados.md
 
