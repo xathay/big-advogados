@@ -87,13 +87,54 @@ def test_pdf_contem_textos_obrigatorios(
     )
     texto = result.stdout
 
-    assert "Declaração técnica e transcrição integral" in texto
-    assert "Cadeia de custódia" in texto
+    # build_pdf (API antiga) gera o modo simples. Normaliza whitespace —
+    # pdftotext quebra linhas no meio das frases.
+    texto = " ".join(texto.split())
+    assert "Transcrição de áudio" in texto
+    assert "SHA-256" in texto
     assert "Bom dia, doutor." in texto
-    assert "faster-whisper" in texto
     assert "prevalece integralmente o áudio gravado" in texto
+
+
+@pytest.mark.skipif(
+    shutil.which("pdftotext") is None,
+    reason="pdftotext (poppler-utils) não instalado",
+)
+def test_pdf_formal_contem_textos_obrigatorios(
+    tmp_path: Path, cfg_minima, fake_audio_meta, fake_env_meta, fake_result,
+) -> None:
+    """Modo formal (declaração técnica) — dados de caso 100% fictícios."""
+    from src.transcritor.pdf_builder import AudioEntry, DadosCaso, build_pdf_formal
+
+    out = tmp_path / "formal.pdf"
+    build_pdf_formal(
+        out,
+        [AudioEntry(metadata=fake_audio_meta, transcription=fake_result)],
+        fake_env_meta,
+        cfg_minima.identidade_visual,
+        cfg_minima.advogado,
+        DadosCaso(
+            processo="0000000-00.0000.0.00.0000",
+            cliente="Parte Exemplo",
+            contraparte="Empresa Exemplo Ltda",
+        ),
+    )
+
+    result = subprocess.run(
+        ["pdftotext", "-layout", str(out), "-"],
+        capture_output=True, text=True, check=True,
+    )
+    texto = " ".join(result.stdout.split())
+
+    assert "DECLARAÇÃO TÉCNICA E TRANSCRIÇÕES INTEGRAIS" in texto
+    assert "0000000-00.0000.0.00.0000" in texto
+    assert "Parte Exemplo" in texto
+    assert "Empresa Exemplo Ltda" in texto
+    assert "Bom dia, doutor." in texto
     assert cfg_minima.advogado.nome in texto
     assert cfg_minima.advogado.oab in texto
+    # Saída restrita ao dono — conteúdo de cliente é sigiloso
+    assert (out.stat().st_mode & 0o777) == 0o600
 
 
 def test_determinismo_dois_pdfs_seguidos(

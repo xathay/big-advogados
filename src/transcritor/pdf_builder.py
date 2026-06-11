@@ -1,9 +1,8 @@
 """Gerador de PDF da declaração técnica + transcrição.
 
-Implementa fielmente o template visual do escritório (cf. projeto-piloto
-``build_anexo_12.py``), via reportlab nativo — sem dependência de
-LibreOffice nem de PNGs externos. O logo "LA" e o footer-bar são
-desenhados via canvas.
+Implementa o template visual configurável (identidade do escritório do
+usuário), via reportlab nativo — sem dependência de LibreOffice nem de
+PNGs externos. O logo e o footer-bar são desenhados via canvas.
 
 Dois modos de operação:
 
@@ -12,7 +11,7 @@ Dois modos de operação:
   custódia e cláusula de prevalência. Útil para uso doméstico/triagem.
 
 - **Modo formal (declaração técnica)** — ativado por presença de
-  ``--processo``. Replica o Anexo 12 do projeto-piloto: 5 seções
+  ``--processo``. Gera a declaração técnica completa: 5 seções
   numeradas (Objeto, Metodologia, Cadeia de custódia, Transcrições,
   Encerramento), anexo técnico com parâmetros de execução e
   encerramento com assinatura(s). Suporta múltiplos áudios em um único
@@ -51,12 +50,13 @@ from reportlab.platypus import (
 from src.transcritor.config import AdvogadoConfig, IdentidadeVisualConfig
 from src.transcritor.engine import TranscriptionResult
 from src.transcritor.metadata import AudioMetadata, EnvironmentMetadata
+from src.transcritor.writers import restringir_permissao
 
 log = logging.getLogger(__name__)
 
 PAGE_W, PAGE_H = A4
 
-# ─────────────────────────── Paleta (extraída do FODT do escritório) ───────────────────────────
+# ─────────────────────────── Paleta padrão da identidade visual ───────────────────────────
 COLOR_NAVY = colors.HexColor("#1B3A5C")
 COLOR_OXBLOOD = colors.HexColor("#5C1A14")
 COLOR_ORANGE = colors.HexColor("#B5470F")
@@ -168,12 +168,31 @@ def _fc_match(family: str, style: str = "Regular") -> Optional[Path]:
     return path if path.is_file() else None
 
 
+def _register_mono() -> None:
+    """Registra Ubuntu Mono (timestamps/hashes), se disponível via fontconfig."""
+    if "UbuntuMono" in pdfmetrics.getRegisteredFontNames():
+        return
+    mono_path = _fc_match("Ubuntu Mono", "Regular")
+    if mono_path:
+        try:
+            pdfmetrics.registerFont(TTFont("UbuntuMono", str(mono_path)))
+            log.debug("Ubuntu Mono registrada: %s", mono_path)
+        except Exception:  # noqa: BLE001
+            pass
+
+
+def _mono_font() -> str:
+    """Fonte mono a usar — Ubuntu Mono se registrada, senão Courier (built-in)."""
+    return "UbuntuMono" if "UbuntuMono" in pdfmetrics.getRegisteredFontNames() else "Courier"
+
+
 def _register_font(nome_fonte: str) -> str:
     """Registra a fonte (e variantes Bold/Italic) via fontconfig.
 
     Retorna o nome a usar no reportlab. Cai para Helvetica se não encontrar.
     Também registra Ubuntu Mono para os timestamps, se disponível.
     """
+    _register_mono()
     if nome_fonte.lower() in ("helvetica", "times-roman", "courier"):
         return nome_fonte
 
@@ -198,16 +217,32 @@ def _register_font(nome_fonte: str) -> str:
             except Exception:  # noqa: BLE001
                 pass
 
-    # Ubuntu Mono pros timestamps
-    mono_path = _fc_match("Ubuntu Mono", "Regular")
-    if mono_path:
-        try:
-            pdfmetrics.registerFont(TTFont("UbuntuMono", str(mono_path)))
-            log.debug("Ubuntu Mono registrada: %s", mono_path)
-        except Exception:  # noqa: BLE001
-            pass
-
     return nome_fonte
+
+
+# Variantes das fontes built-in do PDF — os nomes não seguem o padrão "-Bold"/
+# "-Italic" das TTF registradas (itálico da Helvetica é "Oblique").
+_BUILTIN_VARIANTS = {
+    "helvetica": ("Helvetica-Bold", "Helvetica-Oblique"),
+    "times-roman": ("Times-Bold", "Times-Italic"),
+    "courier": ("Courier-Bold", "Courier-Oblique"),
+}
+
+
+def _bold(font_name: str) -> str:
+    builtin = _BUILTIN_VARIANTS.get(font_name.lower())
+    if builtin:
+        return builtin[0]
+    candidate = font_name + "-Bold"
+    return candidate if candidate in pdfmetrics.getRegisteredFontNames() else font_name
+
+
+def _italic(font_name: str) -> str:
+    builtin = _BUILTIN_VARIANTS.get(font_name.lower())
+    if builtin:
+        return builtin[1]
+    candidate = font_name + "-Italic"
+    return candidate if candidate in pdfmetrics.getRegisteredFontNames() else font_name
 
 
 # ─────────────────────────── Helpers de formatação ───────────────────────────
@@ -246,7 +281,7 @@ def _data_extenso(d: datetime) -> str:
 def _mono(text: str, size: int = 8) -> Paragraph:
     """Retorna paragrafo monospace pra hashes/timestamps."""
     style = ParagraphStyle(
-        "mono", fontName="UbuntuMono", fontSize=size,
+        "mono", fontName=_mono_font(), fontSize=size,
         textColor=COLOR_TEXTO, leading=size + 2,
     )
     return Paragraph(_escape(text), style)
@@ -254,8 +289,8 @@ def _mono(text: str, size: int = 8) -> Paragraph:
 
 def _highlight_box(paragrafo: Paragraph, largura_disponivel: float = None) -> Table:
     """Envolve um Paragraph em uma mini-Table de 1 célula com background
-    pergaminho, replicando o efeito 'highlighter' do template do escritório
-    em frases-chave (cláusula de prevalência, etc.)."""
+    pergaminho — efeito 'highlighter' em frases-chave (cláusula de
+    prevalência, etc.)."""
     if largura_disponivel is None:
         largura_disponivel = PAGE_W - 4 * cm
     t = Table([[paragrafo]], colWidths=[largura_disponivel])
@@ -285,7 +320,7 @@ def _make_styles(font_name: str) -> dict:
         "titulo": ParagraphStyle(
             "Titulo",
             parent=base["Title"],
-            fontName=font_name + "-Bold",
+            fontName=_bold(font_name),
             fontSize=15,
             textColor=COLOR_OXBLOOD,
             alignment=TA_CENTER,
@@ -296,7 +331,7 @@ def _make_styles(font_name: str) -> dict:
         "subtitulo": ParagraphStyle(
             "Subtitulo",
             parent=base["Italic"],
-            fontName=font_name + "-Italic",
+            fontName=_italic(font_name),
             fontSize=11,
             textColor=COLOR_TEXTO_DIM,
             alignment=TA_CENTER,
@@ -306,7 +341,7 @@ def _make_styles(font_name: str) -> dict:
         "h1": ParagraphStyle(
             "H1",
             parent=base["Heading1"],
-            fontName=font_name + "-Bold",
+            fontName=_bold(font_name),
             fontSize=11,
             textColor=COLOR_OXBLOOD,
             spaceBefore=16,
@@ -317,7 +352,7 @@ def _make_styles(font_name: str) -> dict:
         "h2": ParagraphStyle(
             "H2",
             parent=base["Heading2"],
-            fontName=font_name + "-Bold",
+            fontName=_bold(font_name),
             fontSize=10.5,
             textColor=COLOR_NAVY,
             spaceBefore=10,
@@ -345,7 +380,7 @@ def _make_styles(font_name: str) -> dict:
         "caixa_meta_label": ParagraphStyle(
             "CaixaMetaLabel",
             parent=base["BodyText"],
-            fontName=font_name + "-Bold",
+            fontName=_bold(font_name),
             fontSize=9.5,
             textColor=COLOR_OXBLOOD,
             leading=13,
@@ -363,7 +398,7 @@ def _make_styles(font_name: str) -> dict:
         "encerramento_nome": ParagraphStyle(
             "EncerramentoNome",
             parent=base["BodyText"],
-            fontName=font_name + "-Bold",
+            fontName=_bold(font_name),
             fontSize=11,
             textColor=COLOR_TEXTO,
             alignment=TA_CENTER,
@@ -381,7 +416,7 @@ def _make_styles(font_name: str) -> dict:
         "encerramento_assinatura": ParagraphStyle(
             "EncerramentoAssinatura",
             parent=base["BodyText"],
-            fontName=font_name + "-Italic",
+            fontName=_italic(font_name),
             fontSize=9,
             textColor=COLOR_TEXTO_DIM,
             alignment=TA_CENTER,
@@ -390,7 +425,7 @@ def _make_styles(font_name: str) -> dict:
         "local_data": ParagraphStyle(
             "LocalData",
             parent=base["BodyText"],
-            fontName=font_name + "-Italic",
+            fontName=_italic(font_name),
             fontSize=10,
             textColor=COLOR_TEXTO,
             alignment=TA_CENTER,
@@ -405,9 +440,9 @@ def _make_styles(font_name: str) -> dict:
 class _PageDecorator:
     """Callable de onPage: desenha logo na 1ª página e footer em todas as páginas.
 
-    Tanto o logo quanto o footer-bar são imagens PNG completas (extraídas do
-    ODT do escritório). Posições, ícones e cores já estão dentro das imagens
-    — basta colá-las no lugar certo.
+    Tanto o logo quanto o footer-bar são imagens PNG completas (fornecidas
+    pelo usuário na identidade visual). Posições, ícones e cores já estão
+    dentro das imagens — basta colá-las no lugar certo.
     """
 
     LOGO_W = 5.0 * cm        # largura visual do logo no PDF
@@ -476,7 +511,7 @@ def _kv(label: str, value: str, font_name: str) -> Paragraph:
         textColor=COLOR_TEXTO, leading=13,
     )
     return Paragraph(
-        f'<font name="{font_name}-Bold" color="#5C1A14">{_escape(label)}:</font> {_escape(value)}',
+        f'<font name="{_bold(font_name)}" color="#5C1A14">{_escape(label)}:</font> {_escape(value)}',
         style,
     )
 
@@ -510,14 +545,14 @@ def _caixa_audio(audio: AudioEntry, font_name: str, numero: Optional[int] = None
 def _kv_mono(label: str, value: str, font_name: str) -> Paragraph:
     style = ParagraphStyle("kvm", fontName=font_name, fontSize=9.5, textColor=COLOR_TEXTO, leading=13)
     return Paragraph(
-        f'<font name="{font_name}-Bold" color="#5C1A14">{_escape(label)}:</font> '
-        f'<font name="UbuntuMono" size="8.5">{_escape(value)}</font>',
+        f'<font name="{_bold(font_name)}" color="#5C1A14">{_escape(label)}:</font> '
+        f'<font name="{_mono_font()}" size="8.5">{_escape(value)}</font>',
         style,
     )
 
 
 def _kv_inline(text: str, font_name: str) -> Paragraph:
-    style = ParagraphStyle("kvinline", fontName=font_name + "-Bold",
+    style = ParagraphStyle("kvinline", fontName=_bold(font_name),
                            fontSize=9.5, textColor=COLOR_OXBLOOD, leading=13)
     return Paragraph(_escape(text), style)
 
@@ -525,12 +560,12 @@ def _kv_inline(text: str, font_name: str) -> Paragraph:
 def _tabela_segmentos(audio: AudioEntry, font_name: str) -> Table:
     """Tabela 2-col (Tempo (s) | Conteúdo transcrito) com header navy."""
     th_style = ParagraphStyle(
-        "th", fontName=font_name + "-Bold", fontSize=8.5,
+        "th", fontName=_bold(font_name), fontSize=8.5,
         textColor=COLOR_BRANCO, alignment=TA_LEFT, leading=11,
         charSpace=1.5,  # letter-spacing nos headers
     )
     th_center = ParagraphStyle(
-        "thc", fontName=font_name + "-Bold", fontSize=8.5,
+        "thc", fontName=_bold(font_name), fontSize=8.5,
         textColor=COLOR_BRANCO, alignment=TA_CENTER, leading=11,
         charSpace=1.5,
     )
@@ -541,7 +576,7 @@ def _tabela_segmentos(audio: AudioEntry, font_name: str) -> Table:
     rows = [header]
 
     tempo_style = ParagraphStyle(
-        "tempo", fontName="UbuntuMono", fontSize=8,
+        "tempo", fontName=_mono_font(), fontSize=8,
         textColor=COLOR_OXBLOOD, alignment=TA_CENTER, leading=11,
     )
     conteudo_style = ParagraphStyle(
@@ -549,11 +584,11 @@ def _tabela_segmentos(audio: AudioEntry, font_name: str) -> Table:
         textColor=COLOR_TEXTO, alignment=TA_LEFT, leading=13,
     )
     tempo_destaque_style = ParagraphStyle(
-        "tempo_d", fontName="UbuntuMono", fontSize=8,
+        "tempo_d", fontName=_mono_font(), fontSize=8,
         textColor=COLOR_OXBLOOD, alignment=TA_CENTER, leading=11,
     )
     conteudo_destaque_style = ParagraphStyle(
-        "conteudo_d", fontName=font_name + "-Bold", fontSize=10,
+        "conteudo_d", fontName=_bold(font_name), fontSize=10,
         textColor=COLOR_OXBLOOD, alignment=TA_LEFT, leading=13,
     )
 
@@ -642,7 +677,7 @@ def _build_simple(
     story.append(Spacer(1, 4 * mm))
 
     story.append(Paragraph(
-        f'<font name="{font_name}-Bold" color="#5C1A14">'
+        f'<font name="{_bold(font_name)}" color="#5C1A14">'
         f'{_escape(CLAUSULA_PREVALENCIA)}</font>',
         styles["corpo"],
     ))
@@ -708,9 +743,9 @@ def _build_formal(
         ),
         styles["corpo"],
     ))
-    # Cláusula de prevalência em destaque pergaminho (formato Anexo 12)
+    # Cláusula de prevalência em destaque pergaminho
     story.append(_highlight_box(Paragraph(
-        f'<font name="{font_name}-Bold" color="#5C1A14">'
+        f'<font name="{_bold(font_name)}" color="#5C1A14">'
         f'{_escape(CLAUSULA_PREVALENCIA)}</font>',
         styles["corpo"],
     )))
@@ -737,7 +772,7 @@ def _build_formal(
         styles["corpo"],
     ))
     story.append(_highlight_box(Paragraph(
-        f'<font name="{font_name}-Bold" color="#5C1A14">'
+        f'<font name="{_bold(font_name)}" color="#5C1A14">'
         f'{_escape("a alteração de um único bit do arquivo produz um hash radicalmente distinto, de modo que qualquer modificação ulterior do conteúdo sonoro é imediatamente detectável por simples conferência.")}</font>',
         styles["corpo"],
     )))
@@ -787,7 +822,7 @@ def _build_formal(
         f"qualquer hipótese e para todos os fins probatórios, "
     )
     parte_destaque = (
-        f'<font name="{font_name}-Bold" color="#5C1A14">'
+        f'<font name="{_bold(font_name)}" color="#5C1A14">'
         f'{_escape("o áudio original juntado aos autos")}</font>'
     )
     parte_b = _escape(
@@ -956,17 +991,17 @@ def _caixa_identificacao_audio(audio: AudioEntry, caso: DadosCaso, font_name: st
     duracao = (f" (duração: {audio.metadata.duracao_segundos:.2f} s)"
                if audio.metadata.duracao_segundos else "")
     rows = [
-        [_kv("Arquivo", f"{audio.metadata.arquivo}{duracao}", "Ubuntu")],
-        [_kv_mono("SHA-256", audio.metadata.sha256, "Ubuntu")],
+        [_kv("Arquivo", f"{audio.metadata.arquivo}{duracao}", font_name)],
+        [_kv_mono("SHA-256", audio.metadata.sha256, font_name)],
     ]
     if caso.remetente_nome:
         rem = caso.remetente_nome
         if caso.remetente_oab:
             rem = f"{rem} ({caso.posicao_contraparte}, {caso.remetente_oab})"
-        rows.append([_kv("Remetente", rem, "Ubuntu")])
+        rows.append([_kv("Remetente", rem, font_name)])
     rows.append([_kv("Destinatário",
                      f"{caso.posicao_cliente or 'Subscritor'} — patrono da {caso.posicao_cliente or 'parte representada'}",
-                     "Ubuntu")])
+                     font_name)])
 
     t = Table(rows, colWidths=[PAGE_W - 4 * cm])
     t.setStyle(TableStyle([
@@ -1061,6 +1096,7 @@ def build_pdf(
     styles = _make_styles(font_name)
     entry = AudioEntry(metadata=audio, transcription=result)
     _build_simple(output_path, entry, env, identidade, advogado, font_name, styles)
+    restringir_permissao(output_path)
     log.info("PDF gerado: %s", output_path)
 
 
@@ -1082,4 +1118,5 @@ def build_pdf_formal(
     styles = _make_styles(font_name)
     _build_formal(output_path, audios, env, identidade, advogado, caso,
                   co_subscritor, font_name, styles)
+    restringir_permissao(output_path)
     log.info("PDF formal gerado: %s", output_path)
