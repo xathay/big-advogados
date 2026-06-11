@@ -1137,7 +1137,7 @@ python -m src.main
 - Sintoma observado: `pcsc_scan` reconhecia o leitor + ATR do cartão, mas o app
   exibia "Nenhum token detectado" porque a varredura `pyudev` filtra por VID:PID
   presentes no catálogo
-- Reportado por Filipe de Almeida no CachyOS — primeiro caso conhecido do modelo
+- Reportado por usuário no CachyOS — primeiro caso conhecido do modelo
 - Detalhes completos em [`docs/incidentes.md`](docs/incidentes.md)
 
 ### v1.2.0 (2026-04-16)

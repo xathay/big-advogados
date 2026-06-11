@@ -105,7 +105,7 @@ sudo systemctl enable --now pcscd.socket
 | `/usr/lib/udev/rules.d/70-crypto-tokens.rules` | Regras para acesso ao token sem sudo |
 | `~/.local/share/big-certificados/` | Configuração do WebSigner (`websigner.json`) |
 | `~/.local/state/big-certificados/websigner-host.log` | Log do native host (útil para diagnóstico) |
-| `~/Nextcloud/Certificados Digitais (A1 e A3)/` (ou `~/Certificados/`) | Cópia dos `.p12` importados pelo Web Signer |
+| `~/Certificados/` (configurável via `save_dir` no `websigner.json`) | Cópia dos `.p12` importados pelo Web Signer |
 
 ---
 
@@ -198,7 +198,7 @@ na página `esaj.tjsp.jus.br/sajcas/login`.
 
 Na página de login, clique em **"Certificado digital"**. A página mostra um
 dropdown com os certificados disponíveis. Você deve ver o seu (CN do
-certificado, ex.: "LEONARDO ATHAYDE:01234567890").
+certificado, ex.: "FULANO DE TAL:00000000000").
 
 Escolha o certificado e clique em **Confirmar**.
 

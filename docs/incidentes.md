@@ -10,7 +10,7 @@ Serve como referência para investigar falhas semelhantes no futuro.
 | Campo | Valor |
 |-------|-------|
 | **Data do report** | 2026-05-18 |
-| **Reportado por** | Filipe de Almeida (grupo Telegram Athayde Lab) |
+| **Reportado por** | Usuário da comunidade (canal de suporte do projeto) |
 | **Sistema operacional** | CachyOS (Arch-based) |
 | **Versão do app** | 1.2.0 |
 | **Hardware** | Giesecke & Devrient StarSign CUT S |
@@ -80,7 +80,7 @@ hardware ela representa e remover poderia quebrar outro usuário silenciosamente
 
 ### Validação
 
-Filipe atualizou via `git pull && makepkg -sif && udevadm reload`, replugou o
+O usuário atualizou via `git pull && makepkg -sif && udevadm reload`, replugou o
 token, abriu o app e conseguiu autenticar em sistema judicial usando o
 certificado A3 — fluxo completo, ponta a ponta, na primeira tentativa após o fix.
 

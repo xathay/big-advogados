@@ -7,7 +7,7 @@ Modos:
   layout enxuto.
 - **Modo formal (declaração técnica)** — com ``--processo`` e demais flags
   de caso, gera **um único PDF** agregando todos os áudios passados, no
-  formato do Anexo 12 do projeto-piloto.
+  formato de declaração técnica formal para juntada aos autos.
 """
 
 from __future__ import annotations

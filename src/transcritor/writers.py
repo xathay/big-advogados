@@ -15,6 +15,14 @@ from src.transcritor.engine import TranscriptionResult
 from src.transcritor.metadata import AudioMetadata, EnvironmentMetadata
 
 
+def restringir_permissao(path: Path) -> None:
+    """Transcrição é conteúdo sigiloso de cliente — leitura só para o dono."""
+    try:
+        path.chmod(0o600)
+    except OSError:
+        pass
+
+
 def write_txt(path: Path, result: TranscriptionResult) -> None:
     """Transcrição plana com timestamps no início de cada linha."""
     lines = []
@@ -24,6 +32,7 @@ def write_txt(path: Path, result: TranscriptionResult) -> None:
             continue
         lines.append(f"[{seg.start_timestamp} → {seg.end_timestamp}] {texto}")
     path.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
+    restringir_permissao(path)
 
 
 def write_markdown(
@@ -83,6 +92,7 @@ def write_markdown(
         out.append("")
 
     path.write_text("\n".join(out), encoding="utf-8")
+    restringir_permissao(path)
 
 
 def write_metadata_json(
@@ -114,6 +124,7 @@ def write_metadata_json(
         ],
     }
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    restringir_permissao(path)
 
 
 def write_segments_csv(path: Path, result: TranscriptionResult) -> None:
@@ -128,3 +139,4 @@ def write_segments_csv(path: Path, result: TranscriptionResult) -> None:
                 f"{seg.start_timestamp} → {seg.end_timestamp}",
                 seg.text.strip(),
             ])
+    restringir_permissao(path)

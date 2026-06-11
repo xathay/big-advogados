@@ -14,6 +14,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import logging.handlers
 import os
 import struct
 import subprocess
@@ -37,11 +38,22 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 LOG_DIR = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state")) / "big-certificados"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
+try:
+    LOG_DIR.chmod(0o700)
+except OSError:
+    pass
+_LOG_FILE = LOG_DIR / "websigner-host.log"
 logging.basicConfig(
-    filename=str(LOG_DIR / "websigner-host.log"),
-    level=logging.DEBUG,
+    level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
+    handlers=[logging.handlers.RotatingFileHandler(
+        _LOG_FILE, maxBytes=1_000_000, backupCount=2, encoding="utf-8",
+    )],
 )
+try:
+    _LOG_FILE.chmod(0o600)
+except OSError:
+    pass
 log = logging.getLogger("websigner-host")
 
 # ---------------------------------------------------------------------------
@@ -355,9 +367,12 @@ def _find_pfx_path() -> Optional[str]:
     if pfx_path and Path(pfx_path).is_file():
         return pfx_path
 
-    # Search known directories
-    search_dirs = [
-        Path.home() / "Nextcloud" / "Certificados Digitais (A1 e A3)",
+    # Search known directories — o save_dir configurado tem prioridade
+    search_dirs = []
+    custom_dir = config.get("save_dir")
+    if custom_dir:
+        search_dirs.append(Path(custom_dir).expanduser())
+    search_dirs += [
         Path.home() / "Certificados",
         Path.home() / "Documents",
         Path.home() / "Downloads",
@@ -902,9 +917,10 @@ def import_pkcs12(request: Optional[dict]) -> dict:
     Web PKI variants, automated scripts), we still accept a base64 payload
     under the usual field names (content/pkcs12/data/pfx).
 
-    Saves a copy under ``~/Nextcloud/Certificados Digitais (A1 e A3)`` so
-    ``_find_pfx_path`` keeps working, and runs ``pk12util`` against every
-    discovered NSS database so the browser sees the cert without a restart.
+    Saves a copy under ``~/Certificados`` (or the ``save_dir`` configured in
+    ``websigner.json``) so ``_find_pfx_path`` keeps working, and runs
+    ``pk12util`` against every discovered NSS database so the browser sees
+    the cert without a restart.
     """
     request = request or {}
 
@@ -965,7 +981,10 @@ def import_pkcs12(request: Optional[dict]) -> dict:
     if not safe_name.lower().endswith((".pfx", ".p12")):
         safe_name = f"{safe_name}.pfx"
 
-    save_dir = Path.home() / "Nextcloud" / "Certificados Digitais (A1 e A3)"
+    # Destino configurável via "save_dir" no websigner.json; padrão neutro.
+    config = load_config()
+    custom_dir = config.get("save_dir")
+    save_dir = Path(custom_dir).expanduser() if custom_dir else Path.home() / "Certificados"
     try:
         save_dir.mkdir(parents=True, exist_ok=True)
     except Exception:
@@ -979,7 +998,6 @@ def import_pkcs12(request: Optional[dict]) -> dict:
         pass
 
     # Remember the path for _find_pfx_path() to pick up immediately
-    config = load_config()
     config["pfx_path"] = str(save_path)
     save_config(config)
 
@@ -991,9 +1009,16 @@ def import_pkcs12(request: Optional[dict]) -> dict:
             with tempfile.NamedTemporaryFile(suffix=".pfx", delete=False) as tf:
                 tf.write(pfx_bytes)
                 tmp_path = tf.name
-            cmd = ["pk12util", "-i", tmp_path, "-d", f"sql:{nss_path}", "-W", password, "-K", ""]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-            Path(tmp_path).unlink(missing_ok=True)
+            # Senha via arquivo (-w): com -W ela ficaria visível em /proc/*/cmdline
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".pw", delete=False) as pf:
+                pf.write(password)
+                pw_path = pf.name
+            try:
+                cmd = ["pk12util", "-i", tmp_path, "-d", f"sql:{nss_path}", "-w", pw_path, "-K", ""]
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            finally:
+                Path(tmp_path).unlink(missing_ok=True)
+                Path(pw_path).unlink(missing_ok=True)
             if result.returncode == 0:
                 imported.append(str(nss_path))
             else:
