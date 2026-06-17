@@ -1,7 +1,7 @@
 # Maintainer: Leonardo Athayde <leoathayde@gmail.com>
 pkgname=big-certificados
 pkgver=1.4.3
-pkgrel=1
+pkgrel=2
 pkgdesc="Stack jurídica para advogados brasileiros — certificados digitais, assinatura, WebSigner e acesso a tribunais"
 arch=('any')
 url="https://github.com/xathay/big-advogados"
@@ -32,6 +32,7 @@ depends=(
     'polkit'    # autorização do helper big-drivers-install
     'python-typer'  # CLI do transcritor (big-advogados transcrever ...)
     'zenity'    # diálogo de senha (A1) e PIN (A3) do WebSigner — sem ele a assinatura falha
+    'python-textual'  # frontend TUI (big-advogados-tui) para Omarchy/Hyprland
 )
 optdepends=(
     'pcsc-tools: Diagnóstico de leitores PC/SC (pcsc_scan)'
@@ -50,6 +51,8 @@ package() {
     # Install Python sources
     install -dm755 "${_appdir}"
     cp -a "${startdir}/src" "${_appdir}/src"
+    # Frontend TUI (Textual) — reusa a lógica de src/, sem GTK
+    cp -a "${startdir}/tui" "${_appdir}/tui"
 
     # Remove __pycache__
     find "${_appdir}" -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
@@ -71,13 +74,25 @@ exec python3 -m src.transcritor.cli "$@"
 EOF
     chmod 755 "${pkgdir}/usr/bin/big-advogados"
 
+    # Launcher script (TUI — Textual, para Omarchy/Hyprland)
+    cat > "${pkgdir}/usr/bin/big-advogados-tui" << 'EOF'
+#!/usr/bin/env bash
+cd /usr/lib/big-certificados
+exec python3 -m tui "$@"
+EOF
+    chmod 755 "${pkgdir}/usr/bin/big-advogados-tui"
+
     # File-manager action para "Transcrever áudio com BIG"
     install -Dm644 "${startdir}/data/file-manager-actions/transcrever-audio.desktop" \
         "${pkgdir}/usr/share/file-manager/actions/transcrever-audio.desktop"
 
-    # Desktop entry
+    # Desktop entry (GUI)
     install -Dm644 "${startdir}/data/com.bigcertificados.desktop" \
         "${pkgdir}/usr/share/applications/com.bigcertificados.desktop"
+
+    # Desktop entry (TUI — abre no terminal)
+    install -Dm644 "${startdir}/data/big-advogados-tui.desktop" \
+        "${pkgdir}/usr/share/applications/big-advogados-tui.desktop"
 
     # Icons
     install -Dm644 "${startdir}/data/icons/bigcertificados.svg" \
