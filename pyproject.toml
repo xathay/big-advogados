@@ -52,10 +52,16 @@ gui = [
     "oscrypto",
     "qrcode",
 ]
+# Frontend TUI (Textual) — companheiro de terminal para Omarchy/Hyprland.
+# Reusa a lógica de src/; precisa do transcritor (deps core) + textual.
+tui = [
+    "textual>=0.60",
+]
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
     "ruff>=0.4",
+    "textual-dev>=1.5",
 ]
 
 [project.urls]
@@ -65,6 +71,7 @@ Issues = "https://github.com/xathay/big-advogados/issues"
 
 [project.scripts]
 big-advogados = "src.transcritor.cli:main"
+big-advogados-tui = "tui.__main__:main"
 
 [tool.setuptools]
 packages = [
@@ -77,10 +84,14 @@ packages = [
     "src.websigner",
     "src.drivers",
     "src.data",
+    "tui",
+    "tui.screens",
+    "tui.services",
 ]
 
 [tool.setuptools.package-data]
 "src.data" = ["*.toml", "*.json"]
+"tui" = ["*.tcss"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

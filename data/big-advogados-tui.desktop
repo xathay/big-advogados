@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Big Advogados (TUI)
+GenericName=Stack jurídica no terminal
+Comment=Versão de terminal: transcritor forense, certificados A1/A3, tribunais, PJeOffice e drivers
+Exec=big-advogados-tui
+Icon=bigcertificados
+Terminal=true
+Categories=Office;Utility;Security;
+Keywords=advogado;certificado;pje;token;a3;a1;transcricao;tribunal;tui;
+StartupNotify=false

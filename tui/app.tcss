@@ -1,0 +1,71 @@
+/* Big Advogados TUI — estilo enxuto, teclado-first, combina com Ghostty. */
+
+Screen {
+    layout: vertical;
+}
+
+#body {
+    layout: horizontal;
+    height: 1fr;
+}
+
+#sidebar {
+    width: 26;
+    border-right: tall $primary 30%;
+    padding: 1 1;
+}
+
+#sidebar ListView {
+    background: transparent;
+}
+
+#sidebar ListItem {
+    padding: 0 1;
+}
+
+#content {
+    width: 1fr;
+    padding: 1 2;
+}
+
+.title {
+    text-style: bold;
+    color: $accent;
+    margin-bottom: 1;
+}
+
+.hint {
+    color: $text-muted;
+}
+
+/* Dashboard */
+.probe-row {
+    height: auto;
+    padding: 0 0;
+}
+.lvl-ok { color: $success; }
+.lvl-warn { color: $warning; }
+.lvl-err { color: $error; }
+.lvl-info { color: $text; }
+
+/* Transcritor */
+#tr-form {
+    height: auto;
+    border: round $primary 40%;
+    padding: 1 2;
+    margin-bottom: 1;
+}
+#tr-form Input { margin-bottom: 1; }
+#tr-saidas { height: auto; }
+#tr-saidas Checkbox { width: auto; margin-right: 2; }
+#tr-actions { height: auto; margin-top: 1; }
+#tr-progress { margin: 1 0; }
+#tr-log {
+    height: 1fr;
+    border: round $primary 40%;
+    padding: 0 1;
+}
+.placeholder {
+    color: $text-muted;
+    padding: 2 0;
+}
