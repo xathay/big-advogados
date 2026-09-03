@@ -43,8 +43,9 @@ Stack jurídica completa para advogados brasileiros no GNU/Linux — certificado
   - [Gerenciador de Drivers & Tokens](#gerenciador-de-drivers--tokens)
   - [Busca Global](#busca-global)
   - [Proteção por Senha](#proteção-por-senha)
-  - [Transcritor de Áudio com Cadeia de Custódia](#transcritor-de-áudio-com-cadeia-de-custódia)
+  - [Interface de Terminal (TUI)](#interface-de-terminal-tui)
 - [Soluções Exclusivas](#soluções-exclusivas)
+  - [WebSigner — Assinatura Digital no Navegador](#websigner--assinatura-digital-no-navegador)
   - [PJeOffice Pro — Escala HiDPI Automática](#pjeoffice-pro--escala-hidpi-automática)
   - [Brave — Configuração Automática para PJe Office](#brave--configuração-automática-para-pje-office)
 - [Tokens e Drivers Suportados](#tokens-e-drivers-suportados)
@@ -85,9 +86,9 @@ quem precisa acessar sistemas judiciais eletrônicos como PJe, PROJUDI e e-SAJ.
 | **Busca global** | Pesquisa em toda a aplicação com Ctrl+F |
 | **PJeOffice Pro** | Instalador, atualizador e desinstalador integrados |
 | **WebSigner** | Assinatura digital no navegador para e-SAJ, PJe e outros sistemas judiciais |
-| **VidaaS Connect** | Assinatura em nuvem via Valid Certificadora |
+| **VidaaS Connect** | Certificado em nuvem via módulo PKCS#11 local (API REST desabilitada) |
 | **Proteção por senha** | PBKDF2-HMAC-SHA256 com 600.000 iterações |
-| **Transcritor de áudio** | Transcrição forense local com SHA-256, declaração técnica e PDF formatado |
+| **Interface de terminal** | `big-advogados-tui` — as mesmas funções, sem GTK, para quem vive no terminal |
 
 ## Screenshots
 
@@ -228,32 +229,36 @@ validadores oficiais do gov.br.
 | **Posicionamento** | Última página, primeira página ou todas as páginas |
 | **Lote** | Múltiplos PDFs com barra de progresso (`Gtk.ProgressBar`) |
 | **Limpeza** | Arquivo temporário de carimbo removido via `try/finally` |
+| **Validação** | A assinatura recém-criada é verificada (endesive `verify`) antes de o arquivo ser publicado |
+| **Gravação atômica** | Escrita em temporário + `fsync` + `os.replace` — um PDF assinado nunca fica pela metade no disco |
 
-**Dados exibidos no carimbo:** nome do signatário, CPF, OAB (se presente),
+**Dados exibidos no carimbo:** nome do signatário, CPF mascarado (`***.456.789-**`), OAB (se presente),
 Autoridade Certificadora, data/hora e motivo/localidade opcionais.
 
 **Fluxo guiado (wizard de 4 passos):**
 
 1. **Documentos** — selecione os PDFs a serem assinados
-2. **Certificado** — escolha tipo (A1/A3/VidaaS) e selecione o certificado
+2. **Certificado** — escolha tipo (A1/A3) e selecione o certificado
 3. **Opções** — motivo, local, carimbo visível e configuração do Papers
 4. **Assinatura** — progresso em tempo real e resultados por arquivo
 
 ### VidaaS Connect (Certificado em Nuvem)
 
-Integração scaffold com a API REST da **Valid Certificadora** para assinatura
-digital em nuvem:
+Suporte ao certificado em nuvem da **Valid Certificadora** pelo caminho que
+funciona hoje: o **módulo PKCS#11 local** instalado pelo aplicativo VidaaS,
+carregado como qualquer token A3 (PIN, `C_Login`, assinatura no módulo).
 
-- **OAuth2** — autenticação com `client_id`, `client_secret` e `username`
-- **Listagem de certificados** — obtém certificados do cofre do usuário
-- **Assinatura remota** — envia hash para assinatura no servidor HSM da Valid
-- **Callback de status** — `Callable[[VidaaSSignatureResult], None]` para
-  atualização de UI em tempo real
-- **Timeout configurável** — padrão de 30s para operações HTTP
-- **Base URL** — `https://certificado.vidaas.com.br/v0`
+- **Modo PKCS#11** — detecção do módulo, leitura do certificado e assinatura
+- **Estado e callback** — `VidaaSStatus` com estado (`DISCONNECTED`,
+  `WAITING_AUTH`, `CONNECTED`, `ERROR`) para atualização de UI
+- **Credenciais efêmeras** — token em `bytearray` com `clear_credentials()`
+  no disconnect
 
-> **Nota:** Esta funcionalidade requer credenciais da Valid Certificadora e
-> está em fase de implementação. A API pode mudar conforme documentação oficial.
+> **API REST desabilitada.** O cliente HTTP (`vidaas_api.py`) é um esboço
+> histórico cujos endpoints nunca foram confirmados contra documentação ou SDK
+> oficial da Valid. Desde a 1.5.0 ele **falha fechado**: qualquer tentativa de
+> conectar por REST retorna erro, e a UI informa o motivo. O caminho PKCS#11 é
+> independente e continua funcionando. Ver [SECURITY.md](SECURITY.md).
 
 ### PJeOffice Pro
 
@@ -263,7 +268,7 @@ Gerenciamento completo do PJeOffice Pro diretamente na aplicação:
 |---------|-----------|
 | **Detecção** | Verifica se está instalado e exibe a versão atual |
 | **Instalação** | Download direto do CNJ/TRF3 com progresso visual e log em tempo real |
-| **Atualização** | Verificação manual e automática (a cada 24h via `updater.py`) |
+| **Atualização** | Verificação manual e automática (a cada 24h via `updater.py`); nunca oferece downgrade e só instala artefato com SHA-256 fixado |
 | **Desinstalação** | Remoção completa com confirmação e log de execução |
 | **Execução** | Botão para abrir o PJeOffice Pro diretamente |
 | **Escalação** | Scripts helper via `pkexec` para operações com privilégio |
@@ -294,6 +299,12 @@ drivers e middleware necessários para tokens criptográficos:
 | **eID Ásia & Outros** | 22 | Rússia, Ucrânia, China, Japão, Coreia, Índia, e mais 16 |
 | **Hardware de Segurança** | 3 | YubiKey (Personalização), YubiKey Manager, Nitrokey |
 | **Ferramentas** | 2 | PKCS#11 Tools, PC/SC Tools |
+
+**Instalação privilegiada (`scripts/big-drivers-install.py`):** o helper
+invocado via `pkexec` lê o catálogo do disco (não confia no chamador para
+definir destinos), re-verifica o SHA-256 do `.deb` antes de escrever, recusa
+symlinks e arquivos especiais e trabalha sobre uma cópia própria para
+impedir troca do arquivo entre a verificação e o uso.
 
 **Funcionalidades do gerenciador:**
 
@@ -345,78 +356,23 @@ O Big Advogados inclui um sistema de busca global acessível via
 - **Permissões restritas** — arquivo `applock.json` com `chmod 0600`
 - **Nenhum segredo em código** — senhas nunca são armazenadas em texto plano
 
-### Transcritor de Áudio com Cadeia de Custódia
+### Interface de Terminal (TUI)
 
-Feature CLI orientada a **uso forense** — pensada para áudios de WhatsApp,
-Telegram e ligações recebidas como prova em processo. Em um comando,
-gera transcrição com validade probatória pronta para juntar aos autos.
+Frontend de **terminal** (Textual) que reaproveita toda a lógica de `src/` sem
+GTK — pensado para Omarchy/Hyprland e ambientes só-teclado. É instalado junto
+do pacote como `big-advogados-tui`, com entrada própria no menu.
 
-**Pipeline:**
+| Seção | Tecla | O que faz |
+|-------|-------|-----------|
+| Dashboard | `d` | Status do ambiente (config, pcscd, módulos) |
+| Certificados | `c` | Carrega A1 (PFX/P12): titular, CPF, OAB, validade |
+| Token A3 | `t` | Detecção USB com hotplug + leitura por PIN |
+| Sistemas | `s` | Palette de busca dos 39 tribunais → abre no navegador |
+| PJeOffice | `p` | Instalar, reinstalar, remover, verificar atualização |
+| Drivers | `g` | 68 drivers com status e instalação |
+| Assinar PDF | `a` | PAdES com A1 ou A3, carimbo configurável |
 
-1. **SHA-256** do arquivo é calculado **antes** de qualquer processamento
-   (cadeia de custódia: o hash prova integridade do áudio original).
-2. **faster-whisper** (modelo `large-v3` por default) roda **localmente**
-   — nenhum áudio sai da máquina. Sem nuvem, sem telemetria.
-3. **Cinco saídas** geradas no mesmo diretório do áudio:
-
-| Arquivo | Conteúdo |
-|---|---|
-| `<nome>.transcricao.txt` | Texto plano com timestamps SRT por segmento |
-| `<nome>.transcricao.md` | Markdown com cabeçalho de metadados + cláusula de prevalência |
-| `<nome>.transcricao.pdf` | **PDF formatado** com capa, identidade visual do escritório e declaração formal do advogado |
-| `<nome>.metadata.json` | JSON estruturado (integração com outras ferramentas) |
-| `<nome>.segments.csv` | Segmentos para edição manual |
-
-**Características do PDF:**
-
-- Capa com tabela de cadeia de custódia em destaque (border-left oxblood)
-- Seção I — Objeto
-- Seção II — Ferramenta utilizada (faster-whisper versão + repositório público + parâmetros)
-- Seção III — Cadeia de custódia detalhada (SHA-256, hostname, Python, ambiente)
-- Seção IV — Transcrição em tabela 2-col (`tempo` | `conteúdo`) com header navy e linhas zebradas
-- Encerramento — declaração formal assinada pelo advogado configurado
-- Cláusula obrigatória: **"Em caso de divergência entre esta transcrição e o áudio original, prevalece integralmente o áudio gravado, juntado em sua integridade nativa."**
-
-**Como usar:**
-
-```bash
-# Comando único — gera todos os 5 formatos
-big-advogados transcrever audio.m4a
-
-# Modelo específico (mais rápido, menos preciso)
-big-advogados transcrever audio.m4a --modelo medium
-
-# Outro idioma
-big-advogados transcrever audio.m4a --idioma en
-
-# Apenas PDF
-big-advogados transcrever audio.m4a --saida pdf
-
-# Lote
-big-advogados transcrever *.m4a
-```
-
-**Menu contextual:** após `makepkg -si`, no Nautilus/Nemo/Caja clique-direito num
-arquivo de áudio → **"Transcrever áudio com BIG"** dispara o mesmo pipeline.
-
-**Configuração:** `~/.config/big-advogados/transcritor.toml` (criado automaticamente
-na primeira execução). Permite definir:
-- Modelo (`tiny`, `base`, `small`, `medium`, `large-v3`)
-- Device (`auto`, `cpu`, `cuda`) — detecta GPU NVIDIA automaticamente
-- Dados do advogado (nome, OAB, escritório, CNPJ) usados na declaração
-- Logo e barra-rodapé em `~/.config/big-advogados/identity/`
-
-**Reprodutibilidade jurídica:**
-
-Parâmetros determinísticos (`temperature=0.0`, `beam_size=10`, VAD ativo). Qualquer
-perito que aplique os mesmos parâmetros sobre o mesmo arquivo obtém o mesmo
-SHA-256 e transcrição equivalente. O PDF registra todos os parâmetros usados.
-
-> ⚠️ **Restrição de design:** A transcrição é instrumento auxiliar; o áudio
-> original é a prova primária. O Big Advogados **nunca** usa IA generativa para
-> "polir" ou corrigir a transcrição — qualquer pós-processamento abriria flanco
-> para questionamento em juízo. O texto entregue é exatamente o que o Whisper
-> produziu.
+Detalhes, temas e arquitetura em [tui/README.md](tui/README.md).
 
 ---
 
@@ -439,17 +395,24 @@ Web Signer:
 | `getInfo` | Identifica o sistema operacional e versão |
 | `listCertificates` | Lista certificados A1/A3 do banco NSS do Firefox |
 | `readCertificate` | Lê o conteúdo DER completo de um certificado |
-| `authorizeSignatures` | Autoriza assinaturas para um domínio |
-| `signHash` / `signData` | Assina dados com a chave privada do certificado |
+| `authorizeSignatures` | Pede ao usuário, em diálogo local, autorização para um número definido de assinaturas naquele domínio |
+| `signHash` / `signData` | Assina dados com a chave privada — **somente** consumindo uma autorização concedida |
+| lotes (`batch`) | Rejeitados quando vazios ou sem autorização para o tamanho do lote |
 
 **Como funciona:**
 
 1. A extensão Web Signer detecta o Big Advogados como native messaging host
 2. O e-SAJ lista os certificados disponíveis no dropdown
-3. Ao assinar:
+3. Antes de assinar, o site pede autorização: o Big Advogados abre um
+   diálogo local informando o domínio e a quantidade de assinaturas. A
+   autorização é **efêmera** (vale só para aquela operação) e é consumida a
+   cada assinatura; `signHash`/`signData` sem autorização prévia são
+   recusados. O acesso à lista de certificados também exige consentimento
+   (Web Signer ≥ 2.18)
+4. Ao assinar:
    - **A1 (.p12)** — o Big Advogados pede a senha do PFX via diálogo (zenity/kdialog) e assina com a biblioteca `cryptography`
    - **A3 (token USB)** — o Big Advogados localiza o slot PKCS#11 do token, pede o PIN, faz `C_Login` e assina via `CKM_RSA_PKCS` (com prefixo DigestInfo) ou `CKM_SHA*_RSA_PKCS`. PIN é solicitado uma única vez por sessão; a sessão PKCS#11 é fechada no shutdown
-4. O resultado é enviado de volta ao e-SAJ para validação
+5. O resultado é enviado de volta ao e-SAJ para validação
 
 **Instalação (automática):**
 
@@ -682,8 +645,9 @@ big-advogados/
 │   ├── main.py                         # Ponto de entrada (sys.path setup + Application)
 │   ├── application.py                  # Adw.Application (instância única, ações globais)
 │   ├── window.py                       # Adw.ApplicationWindow (NavigationSplitView + busca global)
+│   ├── version.py                      # Versão canônica (lida por pyproject, app e TUI)
 │   │
-│   ├── ui/                             # Interface GTK4/Adwaita (15 módulos)
+│   ├── ui/                             # Interface GTK4/Adwaita
 │   │   ├── token_detect_view.py        # Detecção de tokens USB (udev hotplug)
 │   │   ├── unified_certificates_view.py # Visualização unificada A1+A3
 │   │   ├── certificate_view.py         # Detalhes de certificado X.509
@@ -693,6 +657,8 @@ big-advogados/
 │   │   ├── signer_view.py             # Assinador digital de PDFs (wizard 4 steps)
 │   │   ├── systems_view.py            # OverlaySplitView + Sistemas judiciais/PJeOffice/Drivers/Browsers
 │   │   ├── drivers_view.py            # Construtor de seção Drivers & Tokens
+│   │   ├── driver_install_dialog.py   # Download, EULA e instalação de driver via helper
+│   │   ├── websigner_installer.py     # Instalação dos manifests do WebSigner
 │   │   ├── vidaas_view.py             # Interface VidaaS Connect
 │   │   ├── pin_dialog.py              # Diálogo de PIN para tokens A3
 │   │   ├── lock_screen.py             # Tela de bloqueio por senha
@@ -701,8 +667,14 @@ big-advogados/
 │   │   └── pjeoffice_installer.py     # Instalador do PJeOffice Pro
 │   │
 │   ├── websigner/                      # Native messaging host para Web Signer
-│   │   ├── native_host.py             # Host stdio (getInfo, listCerts, sign*)
-│   │   └── installer.py              # Deploy de manifests per-user
+│   │   ├── native_host.py             # Host stdio (getInfo, listCerts, consentimento, sign*)
+│   │   ├── installer.py              # Deploy de manifests per-user
+│   │   └── firefox-bridge/            # Ponte WebPKI embutida para Firefox
+│   │
+│   ├── drivers/                        # Instalação de drivers PKCS#11 (.deb → sistema)
+│   │   ├── catalog.py                 # Catálogo com URLs e SHA-256
+│   │   ├── installer.py               # Download, verificação e chamada do helper
+│   │   └── _deb.py                    # Extração de .deb (ar + tar)
 │   │
 │   ├── data/                           # Dados estáticos extraídos
 │   │   └── judicial_systems.py        # URLs de sistemas judiciais por estado
@@ -711,12 +683,13 @@ big-advogados/
 │   │   ├── a1_manager.py              # Gerenciamento de certificados A1 (PFX)
 │   │   ├── a3_manager.py              # Gerenciamento de certificados A3 (PKCS#11/PyKCS11)
 │   │   ├── parser.py                  # Parser X.509 (cryptography)
-│   │   ├── pdf_signer.py             # Assinatura digital de PDFs (endesive + try/finally)
-│   │   ├── stamp.py                   # Gerador de carimbo visual (Pillow + ReportLab)
+│   │   ├── pdf_signer.py             # Assinatura de PDFs (endesive + validação + gravação atômica)
+│   │   ├── stamp.py                   # Carimbo visual (Pillow + ReportLab), CPF mascarado
+│   │   ├── certification_page.py      # Página final de certificação da assinatura
 │   │   ├── token_database.py          # Banco de dados de tokens USB (vendor_id/product_id)
 │   │   ├── driver_database.py         # 68 drivers catalogados em 6 categorias
-│   │   ├── vidaas_api.py             # Cliente REST VidaaS Connect (OAuth2)
-│   │   └── vidaas_manager.py          # Gerenciador de sessões VidaaS
+│   │   ├── vidaas_api.py             # Cliente REST VidaaS (desabilitado — falha fechado)
+│   │   └── vidaas_manager.py          # Gerenciador de sessões VidaaS (PKCS#11)
 │   │
 │   ├── browser/                        # Integração com 6 navegadores
 │   │   ├── brave_config.py            # Brave Shields + certificado PJeOffice (JSON direto)
@@ -726,27 +699,38 @@ big-advogados/
 │   └── utils/                          # Utilitários
 │       ├── app_lock.py                # PBKDF2-HMAC-SHA256 (600K iter, secrets.compare_digest)
 │       ├── udev_monitor.py            # Monitoramento USB via pyudev
-│       ├── updater.py                 # Verificação de atualizações PJeOffice (versão canônica)
+│       ├── updater.py                 # Atualização do PJeOffice (versão, URL e SHA-256 canônicos)
 │       ├── vidaas_deps.py             # Verificação de dependências VidaaS
 │       └── xdg.py                     # Diretórios XDG (config, data, cache)
 │
+├── tui/                                # Frontend de terminal (Textual) — ver tui/README.md
+│   ├── app.py                          # Casca: sidebar + ContentSwitcher + bindings
+│   ├── screens/                        # Uma tela por seção
+│   └── services/                       # Ponte GTK-free para src/
+│
+├── tests/                              # pytest (native host, signer, carimbo, drivers, updater)
+│
 ├── data/
 │   ├── icons/                          # Ícones SVG (normal + symbolic para Wayland)
+│   ├── drivers/                        # Catálogo de drivers lido pelo helper privilegiado
 │   ├── udev/                           # Regras udev (70-crypto-tokens.rules)
-│   └── com.bigcertificados.desktop    # Entrada no menu do sistema
+│   ├── com.bigcertificados.desktop     # Entrada no menu (GTK)
+│   └── big-advogados-tui.desktop       # Entrada no menu (TUI)
 │
-├── scripts/                            # Scripts auxiliares (bash)
+├── scripts/                            # Scripts auxiliares (bash e Python)
 │   ├── install-pjeoffice-pro.sh       # Launcher HiDPI (XWayland/Mutter/EDID)
+│   ├── pjeoffice-detect-uiscale.py    # Detecção de escala de UI para o PJeOffice
 │   ├── pjeoffice-install-helper.sh    # Instalador com pkexec
-│   └── pjeoffice-uninstall-helper.sh  # Desinstalador com pkexec
+│   ├── pjeoffice-uninstall-helper.sh  # Desinstalador com pkexec
+│   └── big-drivers-install.py         # Helper privilegiado de drivers (pkexec)
 │
 ├── docs/
 │   ├── manual-usuario.md              # Manual do usuário
-│   ├── plano-ux-ui-design.md          # Plano de redesign UX/UI (6 fases)
-│   ├── plano-vidaas-connect.md         # Plano de integração VidaaS Connect
-│   ├── plano-outros-tokens.md          # Plano para suporte a mais tokens
+│   ├── websigner-technical-guide.md   # Guia técnico do WebSigner
+│   ├── incidentes.md                  # Registro de incidentes
 │   └── screenshots/                    # Screenshots da aplicação
 │
+├── SECURITY.md                         # Política de segurança e relato responsável
 ├── PKGBUILD                            # Pacote Arch Linux (makepkg -si)
 └── requirements.txt                    # Dependências Python (pip)
 ```
@@ -806,12 +790,19 @@ big-advogados/
 | pcsclite | — | Serviço PC/SC para smart cards |
 | ccid | — | Driver USB CCID genérico |
 | opensc | — | Módulo PKCS#11 genérico |
+| qrcode | — | QR code do carimbo de assinatura |
+| textual | ≥ 0.60 | Interface de terminal (`big-advogados-tui`) |
+| typer | ≥ 0.12 | Interface de linha de comando |
+| zenity | — | Diálogos de senha (A1), PIN (A3) e consentimento do WebSigner |
+| polkit | — | Autorização (`pkexec`) dos helpers privilegiados |
+| binutils, tar | — | Extração de `.deb` no instalador de drivers |
 
 ### Dependências opcionais
 
 | Pacote | Descrição |
 |--------|-----------|
 | `pcsc-tools` | `pcsc_scan` para diagnóstico de leitores |
+| `kdialog` | Diálogos do WebSigner em ambientes KDE (alternativa ao zenity) |
 | `etoken` (AUR) | Driver SafeNet para eToken 5110/5300 |
 | `safesignidentityclient` (AUR) | Driver para GD Burti/StarSign |
 | `libaet` (AUR) | Middleware para tokens Serasa |
@@ -842,8 +833,10 @@ terminal para abrir o app — basta clicar no ícone.
 > **O que o `makepkg -si` faz:**
 > - Compila o pacote a partir do `PKGBUILD`
 > - Instala todas as dependências via `pacman` (incluindo `python-endesive`)
-> - Instala o `.desktop`, ícones SVG (normal + symbolic), regras udev e o
->   executável `/usr/bin/big-certificados`
+> - Instala os `.desktop` (GTK e TUI), ícones SVG (normal + symbolic), regras
+>   udev, o helper de drivers e os executáveis `/usr/bin/big-certificados`
+>   (GTK), `/usr/bin/big-advogados-tui` (terminal) e `/usr/bin/big-advogados`
+>   (linha de comando)
 
 ### Modo desenvolvimento (sem instalar)
 
@@ -851,7 +844,8 @@ terminal para abrir o app — basta clicar no ícone.
 # Instale as dependências do sistema
 sudo pacman -S python python-gobject gtk4 libadwaita python-pykcs11 \
   python-pyudev python-cryptography python-pikepdf python-reportlab \
-  python-pillow python-asn1crypto python-oscrypto nss pcsclite ccid opensc
+  python-pillow python-asn1crypto python-oscrypto python-qrcode python-typer \
+  python-textual zenity polkit binutils nss pcsclite ccid opensc
 
 # Instale o endesive (assinador de PDFs)
 yay -S python-endesive
@@ -904,7 +898,8 @@ Big Advogados armazena dados seguindo a especificação **XDG Base Directory**:
 Abra o **Big Advogados** pelo menu de aplicativos ou via terminal:
 
 ```bash
-big-certificados
+big-certificados      # interface GTK4
+big-advogados-tui     # interface de terminal
 ```
 
 ### Guia rápido
@@ -951,7 +946,13 @@ O Big Advogados foi desenvolvido com segurança como prioridade:
 | **PFX password via tempfile** | `pk12util -w` em vez de `-W` (senha não exposta via `ps aux`) |
 | **PIN como bytearray** | PIN do token em `bytearray` com wipe após uso (não `str` imutável) |
 | **OAuth token wipe** | Token VidaaS em `bytearray` + `clear_credentials()` no disconnect |
-| **CPF mascarado (LGPD)** | Carimbo de PDF exibe `***.456.789-**` em vez do CPF completo |
+| **CPF mascarado (LGPD)** | Carimbo de PDF exibe `***.456.789-**` em vez do CPF completo, mesmo quando o CPF chega sem formatação |
+| **Consentimento por assinatura** | O WebSigner só assina após autorização local, efêmera e consumida por operação; `signHash`/`signData`/lotes sem autorização são recusados |
+| **PDF validado antes de gravar** | A nova assinatura CMS é verificada e o arquivo é publicado atomicamente (`fsync` + `os.replace`) |
+| **Helper de drivers endurecido** | Catálogo lido do disco, SHA-256 re-verificado, symlinks e arquivos especiais recusados, cópia própria contra troca de arquivo |
+| **Updater sem downgrade** | O PJeOffice só é instalado a partir de URL e SHA-256 fixados; versões menores que a instalada não são oferecidas |
+| **VidaaS REST falha fechado** | Cliente REST não validado permanece desabilitado; PKCS#11 local é o único caminho ativo |
+| **Política publicada** | [SECURITY.md](SECURITY.md) — versões suportadas, relato responsável e checklist de release |
 
 ---
 
@@ -983,19 +984,60 @@ Contribuições são bem-vindas! Abra uma issue ou envie um pull request.
 
 ```bash
 cd big-advogados
-python -m src.main
+python -m src.main   # GTK
+python -m tui        # terminal
 ```
+
+### Testes
+
+```bash
+pip install -e ".[dev]" cryptography endesive qrcode
+pytest tests/ -m "not integration and not gpu"
+ruff check src/ tests/ scripts/ tui/ --select E9,F63,F7,F82
+```
+
+A CI executa a suíte em Python 3.10 a 3.14 e bloqueia erros críticos de
+lint (sintaxe, nomes indefinidos). A versão do projeto é lida de
+`src/version.py`; não a duplique em outros arquivos.
 
 ### Estrutura do código
 
 - **UI** → `src/ui/` — todas as views e diálogos GTK4
 - **Lógica** → `src/certificate/` + `src/browser/` — sem dependência de GTK
 - **Utils** → `src/utils/` — XDG, udev, locks, updater
-- **Scripts** → `scripts/` — helpers bash para PJeOffice
+- **Drivers** → `src/drivers/` + `scripts/big-drivers-install.py` — download e helper privilegiado
+- **TUI** → `tui/` — telas Textual sobre os mesmos serviços
+- **Scripts** → `scripts/` — helpers (bash e Python) para PJeOffice e drivers
+- **Testes** → `tests/` — pytest
 
 ---
 
 ## Changelog
+
+### v1.5.0 (2026-09-03)
+
+**Segurança (ciclo de endurecimento):**
+- **WebSigner** — consentimento explícito e efêmero antes de cada operação de
+  assinatura; `signHash`, `signData` e lotes sem autorização prévia são
+  recusados; acesso à lista de certificados exige consentimento (Web Signer ≥ 2.18)
+- **Assinador de PDF** — a assinatura recém-criada é validada
+  criptograficamente antes da gravação, que passou a ser atômica
+- **Carimbo** — CPF sempre mascarado, inclusive quando recebido sem pontuação
+- **VidaaS** — cliente REST não validado desabilitado (falha fechado); PKCS#11 preservado
+- **Drivers** — helper privilegiado protegido contra troca de arquivo, hash
+  divergente, symlinks e arquivos especiais
+- **PJeOffice** — atualizador não oferece downgrade nem instala artefato sem hash fixado
+- [SECURITY.md](SECURITY.md) com política de versões e relato responsável
+
+**Interface de terminal:**
+- Nova TUI (`big-advogados-tui`, Textual) com todas as seções do app, incluindo
+  Assinar PDF (A1/A3), empacotada junto do pacote principal
+
+**Projeto:**
+- Versão única em `src/version.py`, lida pelo `pyproject.toml`, pelo app e pela TUI
+- CI cobre todo o código em Python 3.10–3.14, com lint crítico via ruff
+- Metadados do pacote sem e-mails pessoais; PKGBUILD com wrappers usando
+  `/usr/bin/python3` explícito
 
 ### v1.4.3 (2026-05-20)
 
