@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
@@ -18,7 +20,7 @@ from src.utils.app_lock import (
 class LockDialog(Adw.Dialog):
     """Modal lock dialog that blocks app access until password is entered."""
 
-    def __init__(self, on_unlocked: "Callable[[], None]") -> None:
+    def __init__(self, on_unlocked: Callable[[], None]) -> None:
         super().__init__()
         self._on_unlocked = on_unlocked
         self._unlock_btn: Gtk.Button | None = None

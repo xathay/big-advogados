@@ -8,7 +8,7 @@ para definir destinos. Re-verifica SHA-256 antes de escrever nada.
 Argumentos:
     --driver <id>     Id do driver no catalogo (ex.: safesign)
     --source <path>   Arquivo local ja baixado (.deb)
-    --sha256 <hash>   Hash esperado, conferido novamente aqui
+    --sha256 <hash>   Hash informado pela UI (deve coincidir com o catalogo)
 
 Saida (linhas):
     PROGRESS: <msg>   Estagio atual (UI traduz para spinner/barra)
@@ -19,6 +19,7 @@ import argparse
 import hashlib
 import os
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -55,12 +56,28 @@ def err(msg: str, code: int = 1) -> None:
     sys.exit(code)
 
 
-def sha256_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(1 << 16), b""):
-            h.update(chunk)
-    return h.hexdigest()
+def copy_verified_source(source: Path, destination: Path) -> tuple[str, int]:
+    """Copy from one opened descriptor while hashing, avoiding path races."""
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        source_fd = os.open(source, flags)
+    except OSError as exc:
+        err(f"Nao foi possivel abrir o arquivo de origem com seguranca: {exc}")
+
+    digest = hashlib.sha256()
+    size = 0
+    with os.fdopen(source_fd, "rb") as src, destination.open("xb") as dst:
+        source_stat = os.fstat(src.fileno())
+        if not stat.S_ISREG(source_stat.st_mode):
+            err("Arquivo de origem nao e um arquivo regular")
+        for chunk in iter(lambda: src.read(1 << 16), b""):
+            digest.update(chunk)
+            dst.write(chunk)
+            size += len(chunk)
+        dst.flush()
+        os.fsync(dst.fileno())
+    destination.chmod(0o600)
+    return digest.hexdigest(), size
 
 
 def safe_join(base: Path, rel: str) -> Path:
@@ -125,6 +142,27 @@ def extract_deb(deb_path: Path, target_dir: Path) -> None:
         err(f"Falha ao extrair {deb_path.name}")
 
 
+def validate_staging_tree(staging_dir: Path) -> None:
+    """Reject special files and links escaping the root-owned staging tree."""
+    staging_root = staging_dir.resolve()
+    for root, dirnames, filenames in os.walk(staging_root, followlinks=False):
+        root_path = Path(root)
+        for name in [*dirnames, *filenames]:
+            entry = root_path / name
+            mode = entry.lstat().st_mode
+            if stat.S_ISLNK(mode):
+                link_target = os.readlink(entry)
+                if Path(link_target).is_absolute():
+                    err(f"Link absoluto recusado no pacote: {entry.name}")
+                resolved = (entry.parent / link_target).resolve(strict=False)
+                try:
+                    resolved.relative_to(staging_root)
+                except ValueError:
+                    err(f"Link escapa da area de extracao: {entry.name}")
+            elif not (stat.S_ISREG(mode) or stat.S_ISDIR(mode)):
+                err(f"Tipo de arquivo especial recusado no pacote: {entry.name}")
+
+
 def copy_tree(src: Path, dst: Path) -> None:
     """Copia src/. para dst preservando symlinks/perms/owners (root)."""
     dst.mkdir(parents=True, exist_ok=True)
@@ -156,14 +194,17 @@ def main() -> None:
     if not catalog_path.is_file():
         err(f"Catalogo nao encontrado: {catalog_path}")
 
-    progress(f"Verificando integridade ({source.name})")
-    actual = sha256_file(source)
-    if actual != args.sha256:
-        err(f"SHA-256 nao bate (esperado {args.sha256[:16]}..., obtido {actual[:16]}...)")
-
     progress("Lendo catalogo")
     with catalog_path.open("rb") as f:
         catalog = tomllib.load(f)
+    if catalog.get("driver", {}).get("id") != args.driver:
+        err("Id do driver nao coincide com o catalogo instalado")
+    expected_hash = str(catalog.get("source", {}).get("sha256", "")).lower()
+    if len(expected_hash) != 64 or any(c not in "0123456789abcdef" for c in expected_hash):
+        err("SHA-256 invalido no catalogo instalado")
+    if args.sha256.lower() != expected_hash:
+        err("Hash informado pela interface nao coincide com o catalogo instalado")
+
     inst = catalog["install"]
     prefix = Path(inst["prefix"])
 
@@ -184,16 +225,33 @@ def main() -> None:
                 f"e tente novamente."
             )
 
-    progress("Extraindo arquivo de origem")
     with tempfile.TemporaryDirectory(prefix="big-drivers-") as staging:
         staging_path = Path(staging)
-        extract_deb(source, staging_path)
+        verified_source = staging_path / "source.deb"
+
+        progress("Verificando integridade do arquivo de origem")
+        actual, actual_size = copy_verified_source(source, verified_source)
+        if actual != expected_hash:
+            err(
+                "SHA-256 nao coincide com o catalogo instalado "
+                f"(esperado {expected_hash[:16]}..., obtido {actual[:16]}...)"
+            )
+        expected_size = catalog.get("source", {}).get("size_bytes")
+        if isinstance(expected_size, int) and actual_size != expected_size:
+            err(
+                "Tamanho nao coincide com o catalogo instalado "
+                f"(esperado {expected_size}, obtido {actual_size})"
+            )
+
+        progress("Extraindo arquivo de origem")
+        extract_deb(verified_source, staging_path)
+        validate_staging_tree(staging_path)
 
         progress(f"Instalando em {prefix}")
         prefix.mkdir(parents=True, exist_ok=True)
 
         for entry in inst.get("dirs", []):
-            src_dir = staging_path / entry["from"]
+            src_dir = safe_join(staging_path, entry["from"])
             target = safe_join(prefix, entry["to"])
             if not src_dir.is_dir():
                 log_line(f"pulando {entry['from']} (nao existe no .deb)")
@@ -202,7 +260,7 @@ def main() -> None:
             copy_tree(src_dir, target)
 
         for entry in inst.get("shared_dirs", []):
-            src_dir = staging_path / entry["from"]
+            src_dir = safe_join(staging_path, entry["from"])
             target = Path(entry["to"])
             if not src_dir.is_dir():
                 log_line(f"pulando {entry['from']} (nao existe no .deb)")

@@ -83,6 +83,12 @@ DIGEST_NAMES: dict[str, str] = {
     "sha512": "sha512",
 }
 
+# Ephemeral grants live only for the lifetime of this native-host process.
+# Each grant is scoped to a website and certificate and is consumed by the
+# corresponding cryptographic operation.
+_signature_grants: dict[tuple[str, str], int] = {}
+_MAX_SIGNATURE_GRANT = 1000
+
 # DigestInfo DER prefixes (RFC 3447 §9.2) — prepended to a raw hash before
 # CKM_RSA_PKCS so the token signs the same structure that PKCS#1 v1.5 expects.
 DIGEST_INFO_PREFIX: dict[str, bytes] = {
@@ -169,8 +175,33 @@ def load_config() -> dict:
 
 
 def save_config(config: dict) -> None:
+    """Persist configuration atomically with owner-only permissions."""
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    CONFIG_FILE.write_text(json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8")
+    try:
+        CONFIG_DIR.chmod(0o700)
+    except OSError:
+        pass
+
+    fd, tmp_name = tempfile.mkstemp(prefix=".websigner-", dir=CONFIG_DIR)
+    try:
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as tmp_file:
+            json.dump(config, tmp_file, indent=2, ensure_ascii=False)
+            tmp_file.write("\n")
+            tmp_file.flush()
+            os.fsync(tmp_file.fileno())
+        os.replace(tmp_name, CONFIG_FILE)
+        CONFIG_FILE.chmod(0o600)
+    except Exception:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
+        raise
 
 
 # ---------------------------------------------------------------------------
@@ -270,7 +301,7 @@ def list_certificates_from_nss() -> list[dict]:
                     certs.append(cert_info)
 
         except Exception as exc:
-            log.error("Failed to list certs from %s: %s", nss_path, exc)
+            log.error("Failed to list certificates from an NSS profile: %s", exc)
 
     return certs
 
@@ -326,7 +357,7 @@ def _extract_cert_from_nss(nss_path: Path, nickname: str) -> Optional[dict]:
             "_nssNickname": nickname,
         }
     except Exception as exc:
-        log.error("Failed to extract cert '%s' from %s: %s", nickname, nss_path, exc)
+        log.error("Failed to extract a certificate from an NSS profile: %s", exc)
         return None
 
 
@@ -878,6 +909,165 @@ def sign_data(thumbprint: str, data_b64: str, digest_algorithm: str) -> Optional
 # Command handlers
 # ---------------------------------------------------------------------------
 
+
+def _sanitize_dialog_value(value: object, fallback: str, limit: int = 255) -> str:
+    """Return a single printable line suitable for a local consent dialog."""
+    raw = str(value)
+    first_line = raw.splitlines()[0] if raw.splitlines() else ""
+    sanitized = "".join(char for char in first_line[:limit] if char.isprintable()).strip()
+    return sanitized or fallback
+
+
+def _ask_certificate_access(domain: str) -> bool:
+    """Ask whether a site may inspect the user's public certificates.
+
+    Web Signer 2.18.3 introduced ``authorizeCertificateAccess`` before
+    ``listCertificates`` and ``readCertificate``.  The permission concerns
+    only public certificate metadata; every signature still goes through its
+    own authorization/password flow.
+
+    The domain comes from the browser extension.  It is passed as a single
+    subprocess argument (never through a shell) and sanitized for display.
+    """
+    display_domain = _sanitize_dialog_value(domain, "site não identificado")
+
+    text = (
+        f"Permitir que {display_domain} acesse os dados públicos dos seus "
+        "certificados digitais?\n\n"
+        "A chave privada e a senha não serão compartilhadas. "
+        "O navegador lembrará desta autorização."
+    )
+    dialogs = [
+        [
+            "zenity",
+            "--question",
+            "--title=Big Advogados — acesso ao certificado",
+            f"--text={text}",
+            "--ok-label=Permitir",
+            "--cancel-label=Negar",
+        ],
+        [
+            "kdialog",
+            "--yesno",
+            text,
+            "--title",
+            "Big Advogados — acesso ao certificado",
+            "--yes-label",
+            "Permitir",
+            "--no-label",
+            "Negar",
+        ],
+    ]
+
+    for cmd in dialogs:
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            return result.returncode == 0
+        except FileNotFoundError:
+            continue
+        except subprocess.TimeoutExpired:
+            log.warning("Certificate-access authorization timed out for domain=%s", display_domain)
+            return False
+
+    log.error("No supported dialog available for certificate-access authorization")
+    return False
+
+
+def _ask_signature_authorization(
+    domain: str,
+    cert_data: Optional[dict],
+    command: str,
+    request: dict,
+) -> bool:
+    """Require explicit local consent before a website starts signing.
+
+    The decision is deliberately not persisted. Certificate access and use of
+    the private key are separate permissions: allowing a website to list a
+    public certificate must never silently authorize a signature.
+    """
+    display_domain = _sanitize_dialog_value(domain, "site não identificado")
+    subject = _sanitize_dialog_value(
+        cert_data.get("subjectName", "") if cert_data else "",
+        "certificado selecionado",
+        limit=180,
+    )
+
+    signature_count = request.get("signatureCount", 1)
+    if isinstance(signature_count, int) and not isinstance(signature_count, bool) and signature_count > 1:
+        operation = f"um lote com {signature_count} assinaturas"
+    elif command == "preauthorizeSignatures":
+        operation = "uma futura operação de assinatura"
+    else:
+        operation = "uma operação de assinatura"
+
+    dialog_text = (
+        f"O site {display_domain} solicitou autorização para realizar {operation}.\n\n"
+        f"Certificado: {subject}\n\n"
+        "Autorize somente se você iniciou a operação e conferiu o documento no site. "
+        "Esta decisão não será memorizada."
+    )
+    dialogs = [
+        [
+            "zenity",
+            "--question",
+            "--title=Big Advogados — autorizar assinatura",
+            f"--text={dialog_text}",
+            "--ok-label=Autorizar assinatura",
+            "--cancel-label=Negar",
+        ],
+        [
+            "kdialog",
+            "--yesno",
+            dialog_text,
+            "--title",
+            "Big Advogados — autorizar assinatura",
+            "--yes-label",
+            "Autorizar assinatura",
+            "--no-label",
+            "Negar",
+        ],
+    ]
+
+    for dialog in dialogs:
+        try:
+            result = subprocess.run(dialog, capture_output=True, text=True, timeout=120)
+            return result.returncode == 0
+        except FileNotFoundError:
+            continue
+        except subprocess.TimeoutExpired:
+            log.warning("Signature authorization timed out")
+            return False
+
+    log.error("No supported dialog available for signature authorization")
+    return False
+
+
+def _grant_signatures(domain: str, thumbprint: str, count: object) -> bool:
+    """Create a bounded, in-memory signature grant."""
+    if isinstance(count, bool) or not isinstance(count, int):
+        return False
+    if not domain or not thumbprint or not 1 <= count <= _MAX_SIGNATURE_GRANT:
+        return False
+    _signature_grants[(domain, thumbprint)] = count
+    return True
+
+
+def _consume_signature_grant(domain: str, thumbprint: str, count: int = 1) -> bool:
+    """Consume an authorization grant before accessing a private key."""
+    if count < 1:
+        return False
+    key = (domain, thumbprint)
+    remaining = _signature_grants.get(key, 0)
+    if remaining < count:
+        return False
+    remaining -= count
+    if remaining:
+        _signature_grants[key] = remaining
+    else:
+        _signature_grants.pop(key, None)
+    return True
+
+
 def _ask_pfx_path() -> Optional[str]:
     """Ask the user to pick a .pfx/.p12 file using zenity, falling back to kdialog."""
     dialogs = [
@@ -1061,6 +1251,7 @@ def handle_command(message: dict) -> None:
     """Dispatch a command from the extension."""
     request_id = message.get("requestId", "")
     command = message.get("command", "")
+    domain = str(message.get("domain", ""))
     # Some callers (Softplan setup popup) send "request": null — coerce to {}
     # so per-command .get(...) calls don't blow up.
     request = message.get("request") or {}
@@ -1070,6 +1261,16 @@ def handle_command(message: dict) -> None:
     try:
         if command == "getInfo":
             reply_success(request_id, {"os": "Linux", "version": REPORTED_VERSION})
+
+        elif command == "authorizeCertificateAccess":
+            # Web Signer >= 2.18 asks for explicit consent before exposing
+            # public certificate metadata to a website.  Remembering the
+            # grant is handled by the extension, scoped to this domain.
+            authorized = _ask_certificate_access(str(message.get("domain", "")))
+            reply_success(request_id, {
+                "authorized": authorized,
+                "dontAskAgain": authorized,
+            })
 
         elif command == "listCertificates":
             certs = list_certificates_from_nss() + list_certificates_from_a3()
@@ -1101,6 +1302,13 @@ def handle_command(message: dict) -> None:
             cert_thumb = request.get("certificateThumbprint", "")
             hash_value = request.get("hash", "")
             digest_alg = request.get("digestAlgorithm", "")
+            if not _consume_signature_grant(domain, cert_thumb):
+                reply_error(
+                    request_id,
+                    "Signature operation was not authorized",
+                    "signature_not_authorized",
+                )
+                return
             log.info("signHash: thumb=%s..., alg=%s, hash_len=%d",
                      cert_thumb[:16], digest_alg, len(hash_value))
             sig = sign_hash(cert_thumb, hash_value, digest_alg)
@@ -1115,6 +1323,13 @@ def handle_command(message: dict) -> None:
             cert_thumb = request.get("certificateThumbprint", "")
             data = request.get("data", "")
             digest_alg = request.get("digestAlgorithm", "")
+            if not _consume_signature_grant(domain, cert_thumb):
+                reply_error(
+                    request_id,
+                    "Signature operation was not authorized",
+                    "signature_not_authorized",
+                )
+                return
             log.info("signData: thumb=%s..., alg=%s, data_len=%d",
                      cert_thumb[:16], digest_alg, len(data))
             sig = sign_data(cert_thumb, data, digest_alg)
@@ -1126,18 +1341,25 @@ def handle_command(message: dict) -> None:
                 reply_error(request_id, "Signing failed or was cancelled", "sign_error")
 
         elif command in ("authorizeSignatures", "preauthorizeSignatures"):
-            # Extension asks native host to show authorization dialog.
-            # We auto-approve and return the certificate info so the
-            # extension can proceed to signData/signHash.
+            # Listing a public certificate does not authorize use of its
+            # private key. Require a fresh local decision for each operation.
             cert_thumb = request.get("certificateThumbprint", "")
             cert_data = None
             for c in list_certificates_from_nss() + list_certificates_from_a3():
                 if c["thumbprint"] == cert_thumb:
                     cert_data = c
                     break
+            signature_count = request.get("signatureCount", 1)
+            authorized = cert_data is not None and _ask_signature_authorization(
+                domain, cert_data, command, request,
+            )
+            if authorized:
+                authorized = _grant_signatures(domain, cert_thumb, signature_count)
+            else:
+                _signature_grants.pop((domain, cert_thumb), None)
             reply_success(request_id, {
-                "authorized": True,
-                "dontAskAgain": True,
+                "authorized": authorized,
+                "dontAskAgain": False,
                 "certificate": {
                     "thumbprint": cert_thumb,
                     "subjectName": cert_data["subjectName"] if cert_data else "",
@@ -1149,6 +1371,16 @@ def handle_command(message: dict) -> None:
             cert_thumb = request.get("certificateThumbprint", "")
             batch = request.get("batch", [])
             digest_alg = request.get("digestAlgorithm", "")
+            if not isinstance(batch, list) or not batch:
+                reply_error(request_id, "Batch cannot be empty", "invalid_batch")
+                return
+            if not _consume_signature_grant(domain, cert_thumb, len(batch)):
+                reply_error(
+                    request_id,
+                    "Batch signature operation was not authorized",
+                    "signature_not_authorized",
+                )
+                return
             signatures = []
             for item in batch:
                 h = item.get("hash", item) if isinstance(item, dict) else item
@@ -1157,7 +1389,7 @@ def handle_command(message: dict) -> None:
                     reply_error(request_id, "Batch signing failed", "sign_error")
                     return
                 signatures.append(sig)
-            reply_success(request_id, signatures)
+            reply_success(request_id, {"signatures": signatures})
 
         elif command == "importPkcs12":
             result = import_pkcs12(request)
@@ -1168,7 +1400,10 @@ def handle_command(message: dict) -> None:
 
         else:
             log.warning("Unknown command: %s", command)
-            reply_error(request_id, f"Unknown command: {command}", "unknown_command")
+            # This exact code is part of the extension's compatibility
+            # contract.  Web Signer 2.18.3, for example, falls back safely
+            # when an older host does not implement a newly added command.
+            reply_error(request_id, f"Unknown command: {command}", "command_unknown")
 
     except Exception as exc:
         log.exception("Error handling command %s", command)

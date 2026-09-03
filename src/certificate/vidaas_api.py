@@ -22,6 +22,9 @@ log = logging.getLogger(__name__)
 _BASE_URL = "https://certificado.vidaas.com.br/v0"
 _AUTH_URL = "https://certificado.vidaas.com.br/v0/oauth/token"
 _DEFAULT_TIMEOUT = 30  # seconds
+# Fail closed: these endpoints are a historical scaffold and have not been
+# confirmed against an official VidaaS contract or SDK.
+REST_API_ENABLED = False
 
 
 @dataclass
@@ -271,6 +274,10 @@ class VidaaSAPIClient:
 
     def _execute(self, req: urllib.request.Request) -> dict:
         """Execute an HTTP request and return parsed JSON."""
+        if not REST_API_ENABLED:
+            raise VidaaSAPIError(
+                "Integração REST VidaaS desabilitada até validação oficial",
+            )
         try:
             with urllib.request.urlopen(req, timeout=_DEFAULT_TIMEOUT) as resp:
                 data = resp.read()

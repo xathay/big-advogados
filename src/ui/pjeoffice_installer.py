@@ -20,14 +20,12 @@ from gi.repository import Gtk, Adw, GLib, Pango  # noqa: E402
 
 log = logging.getLogger(__name__)
 
-# Import canonical version from updater (single source of truth)
-from src.utils.updater import PJEOFFICE_VERSION
-
-DOWNLOAD_URL = (
-    f"https://pje-office.pje.jus.br/pro/"
-    f"pjeoffice-pro-v{PJEOFFICE_VERSION}-linux_x64.zip"
+# Import canonical version + installer artifact from updater (single source of truth)
+from src.utils.updater import (
+    PJEOFFICE_VERSION,
+    PJEOFFICE_DOWNLOAD_URL as DOWNLOAD_URL,
+    PJEOFFICE_SHA256 as EXPECTED_SHA256,
 )
-EXPECTED_SHA256 = "6087391759c7cba11fb5ef815fe8be91713b46a8607c12eb664a9d9a6882c4c7"
 
 
 class PJeOfficeInstallerDialog(Adw.Dialog):

@@ -12,11 +12,12 @@ from gi.repository import Gtk, Adw, Gio  # noqa: E402
 
 from src.window import MainWindow
 from src.ui.password_settings import PasswordSettingsDialog
+from src.version import VERSION
 
 log = logging.getLogger(__name__)
 
 APP_ID = "com.bigcertificados"
-CURRENT_VERSION = "1.4.3"
+CURRENT_VERSION = VERSION
 
 
 class BigCertificadosApp(Adw.Application):
@@ -163,7 +164,7 @@ class BigCertificadosApp(Adw.Application):
         about.set_application_icon("bigcertificados")
         about.set_license_type(Gtk.License.MIT_X11)
         about.set_release_notes(
-            "<p>Novidades na versão 1.4.3:</p>"
+            "<p>Novidades na versão 1.5.0:</p>"
             "<ul>"
             "<li>Corrigido título em branco na lista de tokens conectados — o &amp; em vendors como G&amp;D era interpretado como entidade Pango e quebrava a renderização do label</li>"
             "<li>Mensagem específica quando o token é reconhecido mas o chip ainda não foi provisionado pela certificadora — antes saía apenas \"Nenhum slot de token disponível\"</li>"
@@ -229,11 +230,11 @@ class BigCertificadosApp(Adw.Application):
             "</ul>"
         )
         about.set_developers([
-            "Leonardo Athayde <leoathayde@gmail.com>",
+            "Leonardo Athayde",
         ])
         about.set_copyright("© 2026 BigLinux Team")
         about.add_credit_section("Contribuidores", [
-            "Rafael Ruscher <rruscher@gmail.com>",
+            "Rafael Ruscher",
         ])
 
         if self._window:

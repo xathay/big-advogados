@@ -4,20 +4,19 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "big-advogados"
-version = "1.4.3"
+dynamic = ["version"]
 description = "Stack jurídica para advogados brasileiros — certificados digitais, assinatura, WebSigner, transcritor de áudio."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = "MIT"
 authors = [
-    { name = "Leonardo Athayde", email = "leoathayde@gmail.com" },
+    { name = "Projeto Big Advogados" },
 ]
 keywords = ["icp-brasil", "certificado-digital", "advogado", "pkcs11", "whisper", "transcricao"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
     "Intended Audience :: Legal Industry",
-    "License :: OSI Approved :: MIT License",
     "Natural Language :: Portuguese (Brazilian)",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3 :: Only",
@@ -88,6 +87,9 @@ packages = [
     "tui.screens",
     "tui.services",
 ]
+
+[tool.setuptools.dynamic]
+version = { attr = "src.version.VERSION" }
 
 [tool.setuptools.package-data]
 "src.data" = ["*.toml", "*.json"]

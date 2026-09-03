@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,6 +19,7 @@ from src.certificate.parser import CertificateInfo, parse_certificate
 
 if TYPE_CHECKING:
     from src.certificate.a3_manager import A3Manager
+    from src.certificate.vidaas_manager import VidaaSManager
 
 log = logging.getLogger(__name__)
 
@@ -45,6 +48,63 @@ class SignatureOptions:
     # "embed"  → stamp on the document's last page (overlay).
     # "append" → append a dedicated certification page at the end.
     signature_page: str = "embed"
+
+
+def _pdf_signature_count(pdf_bytes: bytes) -> int:
+    """Count PDF signature byte ranges without inspecting document contents."""
+    return pdf_bytes.count(b"/ByteRange")
+
+
+def _write_validated_signed_pdf(
+    output_path: str,
+    original_pdf: bytes,
+    signature_increment: bytes,
+) -> None:
+    """Validate the new CMS signature and atomically publish the output PDF.
+
+    ``endesive`` verifies cryptographic integrity and signature correctness.
+    Certificate-chain trust is intentionally not used as the success criterion
+    here because the local trust store may not contain the ICP-Brasil chain.
+    """
+    if not signature_increment:
+        raise ValueError("A biblioteca de assinatura não produziu dados assinados")
+
+    signed_pdf = original_pdf + signature_increment
+    previous_count = _pdf_signature_count(original_pdf)
+
+    try:
+        from endesive.pdf import verify as verify_pdf
+
+        verification_results = verify_pdf(signed_pdf)
+    except Exception as exc:
+        raise ValueError("Não foi possível validar o PDF assinado") from exc
+
+    if len(verification_results) <= previous_count:
+        raise ValueError("A nova assinatura não foi encontrada no PDF resultante")
+
+    hash_ok, signature_ok, _certificate_trusted = verification_results[-1]
+    if not hash_ok or not signature_ok:
+        raise ValueError("A validação criptográfica da nova assinatura falhou")
+
+    out = Path(output_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(prefix=f".{out.name}.", suffix=".tmp", dir=out.parent)
+    try:
+        with os.fdopen(fd, "wb") as tmp_file:
+            tmp_file.write(signed_pdf)
+            tmp_file.flush()
+            os.fsync(tmp_file.fileno())
+        os.replace(tmp_name, out)
+    except Exception:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
+        raise
 
 
 def sign_pdf(
@@ -175,11 +235,7 @@ def sign_pdf(
                 algomd="sha256",
             )
 
-            out = Path(output_path)
-            out.parent.mkdir(parents=True, exist_ok=True)
-            with open(out, "wb") as f:
-                f.write(pdf_bytes)
-                f.write(signed_data)
+            _write_validated_signed_pdf(output_path, pdf_bytes, signed_data)
         finally:
             if tmp_stamp_path:
                 try:
@@ -362,11 +418,7 @@ def sign_pdf_a3(
                 hsm=hsm,
             )
 
-            out = Path(output_path)
-            out.parent.mkdir(parents=True, exist_ok=True)
-            with open(out, "wb") as f:
-                f.write(pdf_bytes)
-                f.write(signed_data)
+            _write_validated_signed_pdf(output_path, pdf_bytes, signed_data)
         finally:
             if tmp_stamp_path:
                 try:
@@ -440,54 +492,6 @@ def _count_pdf_pages(pdf_bytes: bytes) -> int:
 # ── VidaaS Connect signing ───────────────────────────────────────────
 
 
-class _VidaaSRemoteHSM:
-    """HSM adapter for endesive — signs via VidaaS REST API.
-
-    This triggers a push notification to the user's phone for each
-    signing operation. The API polls until the user authorizes.
-    """
-
-    def __init__(
-        self,
-        api_client: "VidaaSAPIClient",
-        cert_id: str,
-        cert_der: bytes,
-        on_status: Optional[callable] = None,
-    ) -> None:
-        self._api = api_client
-        self._cert_id = cert_id
-        self._cert_der = cert_der
-        self._on_status = on_status
-
-    def certificate(self) -> tuple:
-        return (self._cert_id, self._cert_der)
-
-    def sign(self, keyid: object, data: bytes, hashalgo: str) -> bytes:
-        """Sign data via VidaaS API (triggers push notification)."""
-        import hashlib
-
-        hash_func = getattr(hashlib, hashalgo, hashlib.sha256)
-        data_hash = hash_func(data).digest()
-
-        tx_id = self._api.request_signature(
-            self._cert_id, data_hash, hashalgo,
-        )
-
-        result = self._api.wait_for_signature(
-            tx_id, timeout=120, on_status=self._on_status,
-        )
-
-        from src.certificate.vidaas_api import VidaaSSignatureStatus
-
-        if result.status == VidaaSSignatureStatus.COMPLETED:
-            return result.signature_bytes
-        if result.status == VidaaSSignatureStatus.REJECTED:
-            raise RuntimeError("Assinatura rejeitada pelo usuário no celular")
-        if result.status == VidaaSSignatureStatus.EXPIRED:
-            raise TimeoutError("Tempo de autorização expirado no celular")
-        raise RuntimeError(f"Erro na assinatura VidaaS: {result.error_message}")
-
-
 def sign_pdf_vidaas(
     pdf_path: str,
     vidaas_manager: "VidaaSManager",
@@ -498,8 +502,8 @@ def sign_pdf_vidaas(
 ) -> SignatureResult:
     """Sign a PDF using VidaaS Connect certificate.
 
-    Automatically selects PKCS#11 or API REST mode based on the
-    VidaaSManager's current connection mode.
+    Only the locally verifiable PKCS#11 integration is enabled. The former
+    REST scaffold was based on unconfirmed endpoints and is fail-closed.
 
     Args:
         pdf_path: Path to the PDF to sign.
@@ -507,7 +511,7 @@ def sign_pdf_vidaas(
         cert_info: Certificate information.
         output_path: Path for signed PDF output.
         options: Signature appearance options.
-        on_status: Callback for API mode authorization status updates.
+        on_status: Reserved for future, documented remote-signing support.
 
     Returns:
         SignatureResult with success status and details.
@@ -526,138 +530,12 @@ def sign_pdf_vidaas(
         )
 
     if vidaas_manager.mode == VidaaSMode.REST_API:
-        return _sign_pdf_vidaas_api(
-            pdf_path, vidaas_manager, cert_info, output_path,
-            options, on_status,
-        )
-
-    return SignatureResult(
-        pdf_path, output_path, False, "VidaaS não conectado",
-    )
-
-
-def _sign_pdf_vidaas_api(
-    pdf_path: str,
-    vidaas_manager: "VidaaSManager",
-    cert_info: CertificateInfo,
-    output_path: str,
-    options: Optional[SignatureOptions] = None,
-    on_status: Optional[callable] = None,
-) -> SignatureResult:
-    """Sign a PDF via VidaaS REST API (remote signing with phone auth)."""
-    if options is None:
-        options = SignatureOptions()
-
-    pdf_file = Path(pdf_path)
-    if not pdf_file.is_file():
-        return SignatureResult(pdf_path, output_path, False, "Arquivo PDF não encontrado")
-
-    api_client = vidaas_manager.api_client
-    if api_client is None:
         return SignatureResult(
-            pdf_path, output_path, False, "Cliente API VidaaS não conectado",
-        )
-
-    if cert_info.is_expired:
-        return SignatureResult(
-            pdf_path, output_path, False,
-            f"Certificado expirado em {cert_info.not_after:%d/%m/%Y}",
+            pdf_path,
+            output_path,
+            False,
+            "Assinatura VidaaS por API REST está desabilitada até validação oficial",
             cert_info,
         )
 
-    try:
-        pdf_bytes = pdf_file.read_bytes()
-
-        sig_page = options.page
-        if sig_page == -1:
-            sig_page = _count_pdf_pages(pdf_bytes) - 1
-            if sig_page < 0:
-                sig_page = 0
-
-        now = datetime.now(timezone.utc)
-        local_now = datetime.now().astimezone()
-        signing_date = now.strftime("D:%Y%m%d%H%M%S+00'00'")
-
-        margin = 20
-        box_height = 80
-        box_width = 360
-
-        if options.position == "bottom":
-            sig_box = (margin, margin, margin + box_width, margin + box_height)
-        else:
-            sig_box = (margin, 842 - margin - box_height, margin + box_width, 842 - margin)
-
-        udct = {
-            "sigflags": 3,
-            "sigpage": sig_page,
-            "sigfield": "Signature1",
-            "auto_sigfield": True,
-            "sigandcertify": True,
-            "contact": options.contact or cert_info.email or "",
-            "location": options.location,
-            "signingdate": signing_date,
-            "reason": options.reason,
-            "aligned": 0,
-        }
-
-        tmp_stamp_path: str | None = None
-        if options.visible:
-            from src.certificate.stamp import generate_stamp_image
-            import tempfile
-
-            stamp_img = generate_stamp_image(
-                cert_info, local_now, reason=options.reason, pdf_hash=pdf_hash,
-            )
-            tmp_stamp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
-            stamp_img.save(tmp_stamp.name, format="PNG")
-            tmp_stamp.close()
-            tmp_stamp_path = tmp_stamp.name
-            udct["signaturebox"] = sig_box
-            udct["signature_img"] = tmp_stamp_path
-            udct["signature_img_distort"] = False
-            udct["signature_img_centred"] = True
-
-        try:
-            # Build remote HSM adapter
-            cert_der = vidaas_manager.get_cert_der() or b""
-
-            hsm = _VidaaSRemoteHSM(
-                api_client,
-                cert_id=cert_info.serial_number or "",
-                cert_der=cert_der,
-                on_status=on_status,
-            )
-
-            from endesive.pdf import cms as pdf_cms
-
-            signed_data = pdf_cms.sign(
-                pdf_bytes, udct,
-                None, None, [],
-                algomd="sha256",
-                hsm=hsm,
-            )
-
-            out = Path(output_path)
-            out.parent.mkdir(parents=True, exist_ok=True)
-            with open(out, "wb") as f:
-                f.write(pdf_bytes)
-                f.write(signed_data)
-        finally:
-            if tmp_stamp_path:
-                try:
-                    import os
-                    os.unlink(tmp_stamp_path)
-                except OSError:
-                    pass
-
-        log.info("PDF signed (VidaaS API): %s -> %s", pdf_path, output_path)
-        return SignatureResult(pdf_path, output_path, True, cert_info=cert_info)
-
-    except TimeoutError:
-        return SignatureResult(
-            pdf_path, output_path, False,
-            "Tempo de autorização expirado — verifique o app VidaaS no celular",
-        )
-    except Exception as exc:
-        log.error("VidaaS API PDF signing failed: %s", exc, exc_info=True)
-        return SignatureResult(pdf_path, output_path, False, str(exc))
+    return SignatureResult(pdf_path, output_path, False, "VidaaS não conectado")

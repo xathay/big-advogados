@@ -956,7 +956,7 @@ class SystemsView(Adw.Bin):
                 f"Nova versão disponível: v{update_info.version}"
             )
             self._update_row.set_subtitle(
-                "Clique em 'Instalar PJeOffice Pro' para atualizar"
+                "Aguarde uma atualização do Big Advogados com artefato verificado"
             )
             icon = Gtk.Image.new_from_icon_name("software-update-available-symbolic")
             icon.add_css_class("accent")

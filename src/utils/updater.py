@@ -26,6 +26,14 @@ PJEOFFICE_KNOWN_VERSION = PJEOFFICE_VERSION
 # Official download page
 PJEOFFICE_BASE_URL = "https://pje-office.pje.jus.br/pro/"
 
+# Canonical installer artifact — single source of truth shared by the GTK
+# installer dialog and the TUI installer service. The SHA-256 pins the exact
+# linux_x64 zip of PJEOFFICE_VERSION published by the TRF3/CNJ.
+PJEOFFICE_DOWNLOAD_URL = (
+    f"{PJEOFFICE_BASE_URL}pjeoffice-pro-v{PJEOFFICE_VERSION}-linux_x64.zip"
+)
+PJEOFFICE_SHA256 = "6087391759c7cba11fb5ef815fe8be91713b46a8607c12eb664a9d9a6882c4c7"
+
 SETTINGS_FILE = "settings.json"
 CHECK_INTERVAL_HOURS = 24
 
@@ -112,6 +120,15 @@ def _parse_version(version_str: str) -> str:
     return version_str.lstrip("vV").strip()
 
 
+def _version_key(version_str: str) -> tuple[tuple[int, int | str], ...]:
+    """Build a deterministic key for dotted versions with optional suffixes."""
+    normalized = _parse_version(version_str)
+    return tuple(
+        (0, int(part)) if part.isdigit() else (1, part.lower())
+        for part in re.findall(r"\d+|[A-Za-z]+", normalized)
+    )
+
+
 def check_pjeoffice_updates(installed_version: str) -> Optional[PJeOfficeUpdateInfo]:
     """Check the official PJeOffice Pro download page for a newer version.
 
@@ -126,18 +143,17 @@ def check_pjeoffice_updates(installed_version: str) -> Optional[PJeOfficeUpdateI
         html = resp.read().decode("utf-8", errors="replace")
 
     # Find all linux_x64.zip links with version
-    pattern = r'pjeoffice-pro-v([\d.]+[a-z]?)-linux_x64\.zip'
-    versions = re.findall(pattern, html)
+    pattern = r'pjeoffice-pro-v([\d.]+[A-Za-z]*)-linux_x64\.zip'
+    versions = set(re.findall(pattern, html))
 
     if not versions:
         log.debug("No PJeOffice versions found on download page")
         _record_pjeoffice_check()
         return None
 
-    # Get the latest version (last in listing = most recent)
-    latest = versions[-1]
+    latest = max(versions, key=_version_key)
 
-    if latest != _parse_version(installed_version):
+    if _version_key(latest) > _version_key(installed_version):
         download_url = f"{PJEOFFICE_BASE_URL}pjeoffice-pro-v{latest}-linux_x64.zip"
 
         # Try to find SHA-256 file
@@ -152,7 +168,9 @@ def check_pjeoffice_updates(installed_version: str) -> Optional[PJeOfficeUpdateI
                     headers={"User-Agent": "BigCertificados/0.1.0"},
                 )
                 with urllib.request.urlopen(sha_req, timeout=10) as sha_resp:
-                    sha256 = sha_resp.read().decode("utf-8").strip().split()[0]
+                    candidate = sha_resp.read().decode("utf-8").strip().split()[0]
+                    if re.fullmatch(r"[0-9a-fA-F]{64}", candidate):
+                        sha256 = candidate.lower()
             except Exception:
                 log.debug("Could not fetch SHA-256 for PJeOffice %s", latest)
 

@@ -239,35 +239,18 @@ class VidaaSManager:
         client_secret: str,
         username: str,
     ) -> VidaaSStatus:
-        """Connect via VidaaS REST API.
-
-        Note: The API client is a scaffold — endpoints must be confirmed
-        with Valid Certificadora's official documentation.
-        """
-        from src.certificate.vidaas_api import VidaaSAPIClient, VidaaSCredentials
-
-        creds = VidaaSCredentials(
-            client_id=client_id,
-            client_secret=client_secret,
-            username=username,
-        )
-        self._api_client = VidaaSAPIClient(creds)
-
+        """Fail closed while the VidaaS REST contract remains unverified."""
+        del client_id, client_secret, username
         with self._lock:
-            self._state = VidaaSState.WAITING_AUTH
-            if not self._api_client.authenticate():
-                self._state = VidaaSState.ERROR
-                return VidaaSStatus(
-                    state=self._state,
-                    message="Falha na autenticação com API VidaaS",
-                )
-
-            self._mode = VidaaSMode.REST_API
-            self._state = VidaaSState.CONNECTED
+            self._api_client = None
+            self._mode = None
+            self._state = VidaaSState.ERROR
             return VidaaSStatus(
                 state=self._state,
-                mode=self._mode,
-                message="Conectado via API REST",
+                message=(
+                    "API REST VidaaS desabilitada: integração pendente de "
+                    "documentação oficial e testes"
+                ),
             )
 
     def _list_certificates_api(self) -> list[CertificateInfo]:
@@ -295,6 +278,8 @@ class VidaaSManager:
         with self._lock:
             if self._mode == VidaaSMode.PKCS11:
                 self._a3.logout()
+            if self._api_client is not None:
+                self._api_client.clear_credentials()
             self._api_client = None
             self._mode = None
             self._state = VidaaSState.DISCONNECTED

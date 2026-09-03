@@ -15,11 +15,16 @@ Stack jurídica completa para advogados brasileiros no GNU/Linux — certificado
   <img src="https://img.shields.io/badge/Adwaita-1.0%2B-4A86CF?logo=gnome&logoColor=white" alt="Adwaita 1.0+">
   <img src="https://img.shields.io/badge/Platform-GNU%2FLinux-FCC624?logo=linux&logoColor=black" alt="Platform: GNU/Linux">
   <img src="https://img.shields.io/badge/Arch_Linux-1793D1?logo=arch-linux&logoColor=white" alt="Arch Linux">
-  <img src="https://img.shields.io/badge/Status-v1.4.3-green?logo=git&logoColor=white" alt="Status: v1.4.3">
+  <img src="https://img.shields.io/badge/Status-v1.5.0-green?logo=git&logoColor=white" alt="Status: v1.5.0">
 </p>
 
 > ⚠️ **Este projeto está em fase de testes.**
 > Contribuições e relatos de bugs são bem-vindos.
+
+> **Distribuição oficial:** este é o repositório mantido do Big Advogados.
+> Forks podem conter versões antigas ou modificadas. Para relatos sensíveis,
+> consulte a [política de segurança](SECURITY.md) e não publique dados pessoais,
+> documentos, certificados ou logs integrais em issues.
 
 ---
 

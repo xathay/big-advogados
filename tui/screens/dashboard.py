@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from textual import work
 from textual.app import ComposeResult
-from textual.containers import VerticalScroll
+from textual.containers import Vertical, VerticalScroll
 from textual.widgets import Label, Static
 
 from tui.services.status import Probe, coletar_status
 
-_ICON = {"ok": "✓", "warn": "▲", "err": "✗", "info": "•"}
+_ICON = {"ok": "●", "warn": "▲", "err": "○", "info": "·"}
 
 
 class Dashboard(VerticalScroll):
@@ -17,7 +17,7 @@ class Dashboard(VerticalScroll):
 
     def compose(self) -> ComposeResult:
         yield Label("Dashboard", classes="title")
-        yield Static("Carregando status…", id="dash-status", classes="hint")
+        yield Vertical(Static("Carregando status…", classes="hint"), id="dash-status")
 
     def on_mount(self) -> None:
         self.carregar()
@@ -29,12 +29,11 @@ class Dashboard(VerticalScroll):
         self.app.call_from_thread(self._mostrar_status, probes)
 
     def _mostrar_status(self, probes: list[Probe]) -> None:
-        linhas = []
+        cont = self.query_one("#dash-status", Vertical)
+        cont.remove_children()
         for p in probes:
             icon = _ICON.get(p.level, "•")
-            linhas.append(
-                f"[b]{icon} {p.label}:[/] {p.value}"
-            )
-        widget = self.query_one("#dash-status", Static)
-        widget.remove_class("hint")
-        widget.update("\n".join(linhas))
+            cont.mount(Static(
+                f"[b]{icon} {p.label}:[/] {p.value}",
+                classes=f"probe-row lvl-{p.level}",
+            ))

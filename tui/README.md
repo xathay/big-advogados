@@ -15,9 +15,9 @@ dados) sem dependência de GTK. Só a camada de view é nova (Textual).
 | Certificados | `c` | ✅ carrega A1 (PFX/P12) → titular, CPF, OAB, validade colorida |
 | Token A3 | `t` | ✅ detecção USB com hotplug (asyncio) + leitura via PIN (PKCS#11) |
 | Sistemas | `s` | ✅ palette de busca dos 39 tribunais → Enter abre no navegador |
-| PJeOffice | `p` | ✅ versão instalada + verificação de atualização (fonte oficial) |
+| PJeOffice | `p` | ✅ instalar/reinstalar/remover (download + SHA-256 + `pkexec`) · versão instalada · verificação de atualização (fonte oficial) |
 | Drivers | `g` | ✅ 68 drivers com status (pacman) + instalar (oficial pkexec / AUR terminal) |
-| Assinar PDF | `a` | 🔜 (carimbo visual fica no app GTK) |
+| Assinar PDF | `a` | ✅ PAdES (endesive) com A1 (PFX) ou A3 (PIN) · carimbo rodapé/topo, página de certificação ou invisível · SHA-256 embutido |
 
 Teclas globais: `r` recarrega o dashboard · `ctrl+t` cicla tema · `esc` volta
 ao menu · `q` sai. As teclas de seção navegam quando o foco **não** está num
@@ -25,8 +25,9 @@ campo de texto; dentro de um campo, digitam normalmente (o Input consome a
 tecla — por isso `esc` devolve o foco ao menu). A sidebar também navega por
 clique e setas + Enter.
 
-**Tema:** padrão `tokyo-night`; `ctrl+t` cicla por catppuccin-mocha, gruvbox,
-nord, dracula (combinam com o Ghostty/Omarchy).
+**Tema:** padrão `neon-mauve` (estética Blade Runner 2049 do Omarchy —
+`#f2a6ff`/`#f04dff`/`#0a0612`); `ctrl+t` cicla por tokyo-night,
+catppuccin-mocha, gruvbox, nord, dracula.
 
 > **Deps de runtime por seção** (import lazy — o app abre sem elas):
 > transcritor → `faster-whisper`; A1 → `cryptography`; A3 → `PyKCS11`;
@@ -75,7 +76,8 @@ tui/
 │   ├── token.py        # token A3: hotplug + leitura por PIN
 │   ├── sistemas.py     # palette de busca dos tribunais (OptionList)
 │   ├── pjeoffice.py    # status + verificação de atualização
-│   └── drivers.py      # 68 drivers: status + busca + instalação
+│   ├── drivers.py      # 68 drivers: status + busca + instalação
+│   └── assinar.py      # assinatura PAdES: A1/A3, carimbo e saída
 └── services/           # GTK-free; ponte para src/
     ├── status.py        # sondas (pcscd, config, módulos)
     ├── transcricao.py   # orquestra o mesmo pipeline da CLI, com callbacks
@@ -83,7 +85,8 @@ tui/
     ├── token_monitor.py # equivalente asyncio do udev_monitor (sem GLib)
     ├── sistemas.py      # achata judicial_systems + busca + xdg-open
     ├── pjeoffice.py     # reusa updater (sync), sem o caminho GLib
-    └── drivers.py       # reusa driver_database (pacman/pkexec/AUR)
+    ├── drivers.py       # reusa driver_database (pacman/pkexec/AUR)
+    └── assinatura.py    # reusa pdf_signer (endesive) — A1 e A3 (login próprio)
 ```
 
 > Telas dentro do `ContentSwitcher` são todas montadas no boot; para focar um

@@ -225,9 +225,11 @@ def _mask_cpf(cpf: str) -> str:
     """Mask CPF per LGPD: ***.456.789-** from 123.456.789-00."""
     if not cpf:
         return ""
-    if len(cpf) >= 14:
-        return f"***.{cpf[4:7]}.{cpf[8:11]}-**"
-    return cpf
+    digits = "".join(char for char in cpf if char.isdigit())
+    if len(digits) == 11:
+        return f"***.{digits[3:6]}.{digits[6:9]}-**"
+    # Malformed identifiers must fail closed instead of being printed in full.
+    return ""
 
 
 def _truncate_serial(serial: str) -> str:

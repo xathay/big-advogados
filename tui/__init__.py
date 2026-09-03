@@ -4,4 +4,4 @@ Companheiro do app GTK4. Reusa toda a lógica de `src/` (transcritor,
 certificate, browser, data, utils) sem dependência de GTK.
 """
 
-__version__ = "0.1.0"
+from src.version import VERSION as __version__

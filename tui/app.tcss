@@ -23,14 +23,43 @@ Screen {
     padding: 0 1;
 }
 
+/* Highlight neon (paradigma Blade Runner 2049): mauve vivo, não cinza.
+   Nota: #sidebar É o ListView (id no próprio widget). */
+#sidebar > ListItem.-highlight {
+    background: $primary 20%;
+    color: $primary;
+    text-style: bold;
+}
+#sidebar:focus > ListItem.-highlight {
+    background: $primary 35%;
+}
+#sidebar > ListItem.-highlight Label {
+    color: $primary;
+}
+
+/* Banner e rodapé no estilo big-perf. */
+#banner {
+    height: 2;
+    padding: 0 1;
+    border-bottom: dashed #444b6a;
+}
+#footer-strip {
+    height: 1;
+    color: #2a2242;
+    overflow: hidden;
+}
+
 #content {
     width: 1fr;
     padding: 1 2;
 }
 
+/* Título de seção: mauve estrutural com régua dim (painel do big-perf). */
 .title {
     text-style: bold;
-    color: $accent;
+    color: $secondary;
+    border-bottom: dashed #444b6a;
+    width: 100%;
     margin-bottom: 1;
 }
 
@@ -39,6 +68,7 @@ Screen {
 }
 
 /* Dashboard */
+#dash-status { height: auto; }
 .probe-row {
     height: auto;
     padding: 0 0;
@@ -51,7 +81,7 @@ Screen {
 /* Transcritor */
 #tr-form {
     height: auto;
-    border: round $primary 40%;
+    border: round #444b6a;
     padding: 1 2;
     margin-bottom: 1;
 }
@@ -62,10 +92,24 @@ Screen {
 #tr-progress { margin: 1 0; }
 #tr-log {
     height: 1fr;
-    border: round $primary 40%;
+    border: round #444b6a;
     padding: 0 1;
 }
 .placeholder {
     color: $text-muted;
     padding: 2 0;
+}
+
+/* PJeOffice */
+#pje-actions {
+    height: auto;
+    margin: 1 0;
+}
+#pje-actions Button { margin-right: 2; }
+#pje-progress { margin: 1 0; }
+#pje-log {
+    height: 1fr;
+    min-height: 8;
+    border: round #444b6a;
+    padding: 0 1;
 }

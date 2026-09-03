@@ -10,19 +10,24 @@
 #   1. Fallback: 1.0
 #   2. Xft.dpi from XSettings (XWayland)
 #   3. EDID physical size + native resolution (per connected monitor)
-#   4. Mutter DBus DisplayConfig (current logical scale per monitor)
+#   4. xrandr *logical* DPI (preferred on X11 — already nets out desktop scale)
 #
 # Formula:
-#     uiScale = max(edid_dpi) / 96.0
+#     uiScale = max(per_monitor_dpi) / 96.0
 #
-# Why we IGNORE mutter_scale even though it's mathematically tempting:
-# the PJeOffice main window is hard-coded at ~302x300 logical px — already
-# tiny for any modern monitor. A formula like "(edid_dpi/96)/mutter_scale"
-# is geometrically right but produces a window the user perceives as too
-# small, because the design baseline assumed 1024x768 panels. Picking
-# max(edid_dpi)/96 leans toward the highest-DPI monitor connected and
-# rounds upward — the price is slightly oversized fonts on the lower-DPI
-# panel, which the user prefers over a microscopic window.
+# Why xrandr-logical wins over raw EDID on X11:
+# the EDID path reads the panel's NATIVE pixel grid (e.g. 3840x2160). But
+# when the desktop already scales that output down (xrandr --scale, XFCE
+# display scaling), the user interacts with a LOGICAL grid (e.g. 2560x1440).
+# Scaling Java to the native DPI on top of a desktop that already scaled the
+# panel double-counts and produces a huge window. xrandr reports the logical
+# resolution, so logical_px / physical_size gives the DPI the user actually
+# perceives — no double scaling. We only fall back to raw EDID when xrandr
+# is unavailable (e.g. a pure-Wayland session with no XWayland).
+#
+# We still take max() across monitors: over-scaling a low-DPI panel is
+# visually tolerable, but under-scaling a high-DPI one makes PJeOffice's
+# tiny (~302x300 logical px) main window unusable.
 #
 # Override: set PJEOFFICE_UI_SCALE in env to any number (e.g. 1.5, 2, 2.5)
 # to bypass detection. Useful for users who don't like the default sizing.
@@ -76,6 +81,40 @@ def edid_scales() -> dict[str, float]:
             out[connector] = dpi / 96.0
         except (OSError, ValueError):
             continue
+    return out
+
+
+def xrandr_logical_scales() -> dict[str, float]:
+    """Return {connector: logical_dpi/96} from `xrandr --query`.
+
+    Unlike raw EDID, this uses the *logical* resolution xrandr reports, which
+    already nets out any desktop-level output scaling (xrandr --scale, XFCE/X11
+    display scaling). On a panel the desktop scaled down, EDID sees the native
+    pixel grid and over-scales; xrandr sees the logical grid the user actually
+    interacts with. Only available when an X server (real or XWayland) is up.
+    """
+    out: dict[str, float] = {}
+    try:
+        proc = subprocess.run(
+            ["xrandr", "--query"], capture_output=True, text=True, timeout=2,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return out
+    # e.g. "DP-1 connected primary 2560x1440+0+0 (...) 600mm x 340mm"
+    line_re = re.compile(
+        r"^(\S+)\s+connected\b.*?\s(\d+)x(\d+)\+\d+\+\d+.*?\s(\d+)mm\s+x\s+(\d+)mm"
+    )
+    for line in proc.stdout.splitlines():
+        m = line_re.match(line)
+        if not m:
+            continue
+        connector = m.group(1)
+        w = int(m.group(2))
+        w_mm = int(m.group(4))
+        if w == 0 or w_mm == 0:
+            continue
+        dpi = w / (w_mm / 25.4)
+        out[connector] = dpi / 96.0
     return out
 
 
@@ -166,6 +205,8 @@ def main() -> int:
                 "falling back to detection\n"
             )
 
+    session = os.environ.get("XDG_SESSION_TYPE", "").lower()
+    xrandr = xrandr_logical_scales()
     edid = edid_scales()
     mutter, _ = mutter_scales()  # logged for observability only
     native_scaling = xwayland_native_scaling_on()
@@ -173,11 +214,20 @@ def main() -> int:
     chosen: float | None = None
     why = "fallback"
 
+    # Preferred on X11: logical DPI from xrandr already accounts for any
+    # desktop output scaling, so it never double-counts the way raw EDID does.
+    # Skip it on a pure-Wayland session (xrandr there reflects XWayland, which
+    # may not expose per-monitor scale) and fall through to EDID/mutter.
+    if xrandr and session != "wayland":
+        chosen = max(xrandr.values())
+        picked = max(xrandr, key=xrandr.get)
+        why = f"xrandr-logical (max from {picked})"
+
     # Use the highest panel DPI on the system. Multi-monitor users care
     # about whichever screen has the most demanding pixel density —
     # over-scaling a low-DPI panel is visually fine, under-scaling a
     # high-DPI panel makes PJeOffice unusable.
-    if edid:
+    if chosen is None and edid:
         chosen = max(edid.values())
         picked = max(edid, key=edid.get)
         why = f"edid (max from {picked}, native_scaling={native_scaling})"
@@ -205,7 +255,8 @@ def main() -> int:
 
     sys.stderr.write(
         f"pjeoffice-detect-uiscale: raw={chosen:.3f} final={final} "
-        f"why={why} edid={edid} mutter={mutter} native={native_scaling}\n"
+        f"why={why} xrandr={xrandr} edid={edid} mutter={mutter} "
+        f"native={native_scaling} session={session or '?'}\n"
     )
     print(f"{final}")
     return 0

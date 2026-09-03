@@ -1,7 +1,6 @@
 """Big Advogados TUI — casca principal (Textual).
 
-Navegação por sidebar + ContentSwitcher. Fase 1 entrega Dashboard e
-Transcritor funcionais; as demais seções são placeholders das próximas fases.
+Navegação por sidebar + ContentSwitcher. Todas as seções funcionais.
 """
 
 from __future__ import annotations
@@ -9,10 +8,9 @@ from __future__ import annotations
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal
+from textual.theme import Theme
 from textual.widgets import (
     ContentSwitcher,
-    Footer,
-    Header,
     Label,
     ListItem,
     ListView,
@@ -20,6 +18,7 @@ from textual.widgets import (
 )
 
 from tui import __version__
+from tui.screens.assinar import Assinar
 from tui.screens.certificados import Certificados
 from tui.screens.dashboard import Dashboard
 from tui.screens.drivers import Drivers
@@ -27,6 +26,23 @@ from tui.screens.pjeoffice import PJeOffice
 from tui.screens.sistemas import Sistemas
 from tui.screens.token import TokenA3
 from tui.screens.transcritor import Transcritor
+
+# Tema próprio — estética neon-mauve Blade Runner 2049, paleta do big-perf:
+# MAUVE #bb9af7 estrutura · NEON #f2a6ff destaque · PINK #f04dff · DIM #444b6a.
+NEON_MAUVE = Theme(
+    name="neon-mauve",
+    primary="#f2a6ff",
+    secondary="#bb9af7",
+    accent="#f04dff",
+    foreground="#a9b1d6",
+    background="#0a0612",
+    surface="#140a1f",
+    panel="#1b0f2a",
+    success="#9ece6a",
+    warning="#e0af68",
+    error="#f7768e",
+    dark=True,
+)
 
 # (id, tecla, rótulo, disponível?)
 SECOES = [
@@ -37,21 +53,8 @@ SECOES = [
     ("sistemas", "s", "Sistemas", True),
     ("pjeoffice", "p", "PJeOffice", True),
     ("drivers", "g", "Drivers", True),
-    ("assinar", "a", "Assinar PDF", False),
+    ("assinar", "a", "Assinar PDF", True),
 ]
-
-
-class Placeholder(Static):
-    """Seção ainda não implementada (fase futura)."""
-
-    def __init__(self, titulo: str, fase: str, id: str) -> None:
-        super().__init__(id=id)
-        self._titulo = titulo
-        self._fase = fase
-
-    def compose(self) -> ComposeResult:
-        yield Label(self._titulo, classes="title")
-        yield Static(f"Em breve — {self._fase}.", classes="placeholder")
 
 
 class BigAdvogadosTUI(App):
@@ -61,7 +64,7 @@ class BigAdvogadosTUI(App):
     TITLE = "Big Advogados"
 
     # Temas que combinam com o visual do Omarchy/Ghostty.
-    TEMAS = ("tokyo-night", "catppuccin-mocha", "gruvbox", "nord", "dracula")
+    TEMAS = ("neon-mauve", "tokyo-night", "catppuccin-mocha", "gruvbox", "nord", "dracula")
 
     BINDINGS = [
         Binding("d", "ir('dashboard')", "Dashboard"),
@@ -79,17 +82,24 @@ class BigAdvogadosTUI(App):
     ]
 
     def on_mount(self) -> None:
-        # Tema padrão alinhado ao Omarchy (Hyprland/Ghostty).
-        self.theme = "tokyo-night"
+        # Tema padrão alinhado ao Omarchy (neon-mauve / Blade Runner 2049).
+        self.register_theme(NEON_MAUVE)
+        self.theme = "neon-mauve"
 
     def compose(self) -> ComposeResult:
-        self.sub_title = f"v{__version__} · Omarchy/Hyprland"
-        yield Header()
+        # Banner no estilo big-perf: ◢ LOGO ◣ // subtítulo, régua dim abaixo.
+        yield Static(
+            f"[#f04dff]◢[/] [b #f2a6ff]BIG ADVOGADOS[/] [#444b6a]v{__version__}[/] "
+            f"[#f04dff]◣[/] [#444b6a]// stack jurídica // omarchy · hyprland[/]",
+            id="banner",
+        )
         with Horizontal(id="body"):
             with ListView(id="sidebar"):
                 for sid, tecla, rotulo, ok in SECOES:
                     marca = "" if ok else " [dim](em breve)[/]"
-                    item = ListItem(Label(f"[b]{tecla}[/]  {rotulo}{marca}"))
+                    item = ListItem(Label(
+                        f"[#bb9af7]\\[[/][b #f2a6ff]{tecla}[/][#bb9af7]][/] {rotulo}{marca}"
+                    ))
                     item.id = f"nav-{sid}"
                     yield item
             with ContentSwitcher(initial="dashboard", id="content"):
@@ -100,7 +110,8 @@ class BigAdvogadosTUI(App):
                 yield Sistemas(id="sistemas")
                 yield PJeOffice(id="pjeoffice")
                 yield Drivers(id="drivers")
-                yield Placeholder("Assinar PDF", "fase 5 (sem preview visual)", id="assinar")
+                yield Assinar(id="assinar")
+        yield Static("◣◢" * 200, id="footer-strip")
 
     def action_ir(self, secao: str) -> None:
         switcher = self.query_one("#content", ContentSwitcher)

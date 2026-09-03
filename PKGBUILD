@@ -1,7 +1,7 @@
-# Maintainer: Leonardo Athayde <leoathayde@gmail.com>
+# Maintainer: Projeto Big Advogados
 pkgname=big-certificados
-pkgver=1.4.3
-pkgrel=2
+pkgver=1.5.0
+pkgrel=6
 pkgdesc="Stack jurídica para advogados brasileiros — certificados digitais, assinatura, WebSigner e acesso a tribunais"
 arch=('any')
 url="https://github.com/xathay/big-advogados"
@@ -50,9 +50,11 @@ package() {
 
     # Install Python sources
     install -dm755 "${_appdir}"
-    cp -a "${startdir}/src" "${_appdir}/src"
+    # Alguns ambientes de build isolados recusam a preservação de uid/gid
+    # feita por `cp -a`. O fakeroot registra root:root no pacote depois.
+    cp -a --no-preserve=ownership "${startdir}/src" "${_appdir}/src"
     # Frontend TUI (Textual) — reusa a lógica de src/, sem GTK
-    cp -a "${startdir}/tui" "${_appdir}/tui"
+    cp -a --no-preserve=ownership "${startdir}/tui" "${_appdir}/tui"
 
     # Remove __pycache__
     find "${_appdir}" -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
@@ -62,7 +64,7 @@ package() {
     cat > "${pkgdir}/usr/bin/${pkgname}" << 'EOF'
 #!/usr/bin/env bash
 cd /usr/lib/big-certificados
-exec python3 -m src.main "$@"
+exec /usr/bin/python3 -m src.main "$@"
 EOF
     chmod 755 "${pkgdir}/usr/bin/${pkgname}"
 
@@ -70,7 +72,7 @@ EOF
     cat > "${pkgdir}/usr/bin/big-advogados" << 'EOF'
 #!/usr/bin/env bash
 cd /usr/lib/big-certificados
-exec python3 -m src.transcritor.cli "$@"
+exec /usr/bin/python3 -m src.transcritor.cli "$@"
 EOF
     chmod 755 "${pkgdir}/usr/bin/big-advogados"
 
@@ -78,7 +80,7 @@ EOF
     cat > "${pkgdir}/usr/bin/big-advogados-tui" << 'EOF'
 #!/usr/bin/env bash
 cd /usr/lib/big-certificados
-exec python3 -m tui "$@"
+exec /usr/bin/python3 -m tui "$@"
 EOF
     chmod 755 "${pkgdir}/usr/bin/big-advogados-tui"
 

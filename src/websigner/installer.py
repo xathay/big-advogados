@@ -11,7 +11,7 @@ import json
 import logging
 import os
 import stat
-import subprocess
+import sys
 import zipfile
 from configparser import ConfigParser
 from pathlib import Path
@@ -23,6 +23,7 @@ FIREFOX_EXTENSION_IDS = ["websigner@softplan_com_br", "websigner@softplan.com.br
 CHROME_EXTENSION_ID = "bbafmabaelnnkondpfpjmdklbmfnbmol"
 
 NATIVE_APP_NAME = "br.com.softplan.webpki"
+SYSTEM_PYTHON = Path("/usr/bin/python3")
 
 # Paths where browsers look for native messaging manifests
 FIREFOX_MANIFEST_DIRS = [
@@ -66,8 +67,12 @@ def _create_wrapper_script(target_dir: Path) -> str:
     if native_host.endswith("websigner-host"):
         return native_host
 
+    # Pacotes Arch instalam as dependências Python em /usr/lib/python*.  Usar
+    # apenas `python3` aqui permite que mise/pyenv altere o interpretador pelo
+    # PATH do navegador e torne módulos como cryptography invisíveis.
+    python_executable = SYSTEM_PYTHON if SYSTEM_PYTHON.is_file() else Path(sys.executable)
     content = f"""#!/bin/sh
-exec python3 "{native_host}" "$@"
+exec "{python_executable}" "{native_host}" "$@"
 """
     target_dir.mkdir(parents=True, exist_ok=True)
     wrapper.write_text(content)
@@ -208,7 +213,7 @@ def check_installation_status() -> dict:
     for base in [Path.home() / ".config" / "mozilla" / "firefox", Path.home() / ".mozilla" / "firefox"]:
         if not base.is_dir():
             continue
-        for xpi in base.rglob("websigner@softplan_com_br.xpi"):
+        for _xpi in base.rglob("websigner@softplan_com_br.xpi"):
             status["extension_installed"] = True
             break
 
@@ -259,10 +264,7 @@ def _find_firefox_profiles() -> list[Path]:
             is_relative = parser.getboolean(section, "IsRelative", fallback=True)
             if not path_val:
                 continue
-            if is_relative:
-                profile_path = base / path_val
-            else:
-                profile_path = Path(path_val)
+            profile_path = base / path_val if is_relative else Path(path_val)
             if profile_path.is_dir():
                 profiles.append(profile_path)
     return profiles

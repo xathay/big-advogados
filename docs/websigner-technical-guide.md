@@ -44,6 +44,7 @@ Cada mensagem tem um prefixo de 4 bytes (little-endian) com o tamanho do JSON:
 | Comando | Direção | Descrição |
 |---------|---------|-----------|
 | `getInfo` | → host | Retorna `{ os: "Linux", version: "2.15.4" }` |
+| `authorizeCertificateAccess` | → host | Pede consentimento antes de expor certificados públicos ao domínio |
 | `listCertificates` | → host | Lista certificados do banco NSS |
 | `readCertificate` | → host | Lê conteúdo DER de um certificado (base64) |
 | `authorizeSignatures` | → host | Autoriza assinatura — deve retornar `{ authorized: true, certificate: {...} }` |
@@ -173,6 +174,29 @@ A página de login usa a lib Softplan. A página de protocolo usa a lib Lacuna.
 Elas procuram por meta tags e event names diferentes.
 
 **Solução:** Extensão ponte que injeta os meta tags Lacuna e traduz os event names.
+
+### Bug 4: autorização de acesso aos certificados no Web Signer 2.18.3
+
+A extensão 2.18.3 passou a chamar `authorizeCertificateAccess` antes de listar ou ler
+certificados. Hosts antigos que não reconheciam o comando impediam o login, e o e-SAJ
+voltava a exibir a janela de instalação do Web Signer.
+
+**Solução:** o native host mostra um diálogo com o domínio solicitante e responde
+`{ authorized, dontAskAgain }`. A autorização permite apenas ler os dados públicos do
+certificado; senha e chave privada continuam protegidas pelo fluxo próprio de assinatura.
+
+Comandos futuros desconhecidos devem responder com o código `command_unknown`, grafia
+esperada pela extensão para acionar sua compatibilidade com hosts anteriores.
+
+### Bug 5: Python do `mise` sem as dependências do pacote
+
+O native host era iniciado com `python3`, resolvido pelo `PATH` herdado do navegador.
+Quando `mise` ou `pyenv` tinha precedência, o host usava um ambiente diferente do Python
+do sistema e falhava ao importar `cryptography`, embora `python-cryptography` estivesse
+corretamente instalado pelo pacman.
+
+**Solução:** wrappers e launchers do pacote usam explicitamente `/usr/bin/python3`, o
+mesmo interpretador para o qual as dependências do `PKGBUILD` são instaladas.
 
 ## Fluxo completo de assinatura
 
